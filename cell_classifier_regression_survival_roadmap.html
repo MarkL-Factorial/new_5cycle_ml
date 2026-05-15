@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-05-15" />
+  <title>cell_classifier — regression + survival roadmap</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  :root {
+      --fg: #1a1a1a;
+      --fg-muted: #5a5a5a;
+      --bg: #fdfdfd;
+      --bg-code: #f5f5f7;
+      --bg-tbl-alt: #fafafa;
+      --border: #e1e1e6;
+      --accent: #0b5394;
+      --accent-light: #d6e4f0;
+      --sidebar-bg: #f8f9fb;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+
+  body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
+                   sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--fg);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 2rem 4rem 300px;
+      max-width: 1140px;
+  }
+
+  @media (max-width: 900px) {
+      body { padding: 1.5rem; }
+      nav#TOC { position: static !important; width: auto !important;
+                height: auto !important; border-right: none !important;
+                border-bottom: 1px solid var(--border);
+                margin-bottom: 2rem; }
+  }
+
+  /* ---------- Sidebar TOC ---------- */
+  nav#TOC {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 270px;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 1.5rem 1rem 2rem 1.25rem;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      font-size: 13.5px;
+      line-height: 1.5;
+  }
+  nav#TOC::before {
+      content: "Contents";
+      display: block;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-muted);
+      margin-bottom: 0.5rem;
+  }
+  nav#TOC ul {
+      list-style: none;
+      padding-left: 0.75rem;
+      margin: 0;
+  }
+  nav#TOC > ul { padding-left: 0; }
+  nav#TOC li { margin: 0.2rem 0; }
+  nav#TOC a {
+      color: var(--fg);
+      text-decoration: none;
+      display: block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border-left: 2px solid transparent;
+  }
+  nav#TOC a:hover {
+      background: var(--accent-light);
+      color: var(--accent);
+  }
+  nav#TOC > ul > li > a { font-weight: 600; }
+  nav#TOC ul ul a { color: var(--fg-muted); font-weight: 400; }
+
+  /* ---------- Typography ---------- */
+  h1, h2, h3, h4 {
+      color: var(--fg);
+      line-height: 1.25;
+      margin-top: 2.2rem;
+      margin-bottom: 0.6rem;
+      font-weight: 600;
+  }
+  h1 {
+      font-size: 1.9rem;
+      margin-top: 0;
+      padding-bottom: 0.4rem;
+      border-bottom: 2px solid var(--border);
+  }
+  h2 {
+      font-size: 1.45rem;
+      margin-top: 2.6rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 1.15rem; color: var(--accent); margin-top: 1.8rem; }
+  h4 { font-size: 1rem; }
+
+  p { margin: 0.6rem 0; }
+  strong { font-weight: 600; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- Lists ---------- */
+  ul, ol { padding-left: 1.4rem; margin: 0.5rem 0; }
+  li { margin: 0.25rem 0; }
+  li > ul, li > ol { margin: 0.25rem 0; }
+
+  /* ---------- Code ---------- */
+  code {
+      font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+                   "Courier New", monospace;
+      font-size: 0.88em;
+      background: var(--bg-code);
+      padding: 0.12em 0.4em;
+      border-radius: 3px;
+      color: #c7254e;
+  }
+  pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.85rem 1rem;
+      overflow-x: auto;
+      line-height: 1.45;
+      margin: 0.9rem 0;
+  }
+  pre code {
+      background: none;
+      padding: 0;
+      color: var(--fg);
+      font-size: 0.85em;
+  }
+
+  /* ---------- Tables ---------- */
+  table {
+      border-collapse: collapse;
+      margin: 1rem 0;
+      width: 100%;
+      font-size: 0.93em;
+  }
+  th, td {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+  }
+  th {
+      background: var(--bg-tbl-alt);
+      font-weight: 600;
+      border-bottom: 2px solid var(--border);
+  }
+  tbody tr:nth-child(even) { background: var(--bg-tbl-alt); }
+  tbody tr:hover { background: var(--accent-light); }
+
+  /* Right-align numeric columns (header text ends with ':') */
+  th[align="right"], td[align="right"] { text-align: right; }
+
+  /* ---------- Blockquotes ---------- */
+  blockquote {
+      margin: 0.9rem 0;
+      padding: 0.4rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-light);
+      color: var(--fg);
+  }
+  blockquote p { margin: 0.3rem 0; }
+
+  /* ---------- Title block ---------- */
+  header#title-block-header {
+      margin-bottom: 1rem;
+  }
+  header#title-block-header h1.title { margin-bottom: 0.2rem; }
+  header#title-block-header .subtitle {
+      color: var(--fg-muted);
+      font-size: 0.95rem;
+      margin-bottom: 0.4rem;
+  }
+
+  /* ---------- Phase callouts ---------- */
+  h3:has(+ p strong:first-child:contains("Goal")) {
+      background: var(--accent-light);
+  }
+
+  hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+  }
+
+  /* ---------- Print ---------- */
+  @media print {
+      nav#TOC { display: none; }
+      body { padding: 1rem; max-width: none; }
+      a { color: var(--fg); text-decoration: none; }
+      pre, table { page-break-inside: avoid; }
+  }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">cell_classifier — regression + survival roadmap</h1>
+<p class="subtitle">Three-phase plan: regression spine → XGBoost-AFT →
+Random Survival Forest</p>
+<p class="date">2026-05-15</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#plan-extend-cell_classifier-with-cycle-life-regression--survival-models"
+id="toc-plan-extend-cell_classifier-with-cycle-life-regression--survival-models">Plan:
+extend cell_classifier with cycle-life regression + survival models</a>
+<ul>
+<li><a href="#context" id="toc-context">Context</a></li>
+<li><a href="#data-semantics-verified-no-changes-to-ml_label_preprocess"
+id="toc-data-semantics-verified-no-changes-to-ml_label_preprocess">Data
+semantics (verified, no changes to ml_label_preprocess)</a></li>
+<li><a href="#three-phase-build" id="toc-three-phase-build">Three-phase
+build</a>
+<ul>
+<li><a href="#phase-1--plumbing--regression-ebm--xgb-on-faded-only"
+id="toc-phase-1--plumbing--regression-ebm--xgb-on-faded-only">Phase 1 —
+plumbing + regression (EBM + XGB on faded-only)</a></li>
+<li><a href="#phase-2--xgboost-aft-censoring-aware-xgb-no-new-framework"
+id="toc-phase-2--xgboost-aft-censoring-aware-xgb-no-new-framework">Phase
+2 — XGBoost-AFT (censoring-aware XGB, no new framework)</a></li>
+<li><a href="#phase-3--random-survival-forest"
+id="toc-phase-3--random-survival-forest">Phase 3 — Random Survival
+Forest</a></li>
+</ul></li>
+<li><a href="#critical-files-to-be-modified-summary"
+id="toc-critical-files-to-be-modified-summary">Critical files to be
+modified (summary)</a></li>
+<li><a href="#patterns--utilities-to-reuse-not-re-invent"
+id="toc-patterns--utilities-to-reuse-not-re-invent">Patterns / utilities
+to reuse (not re-invent)</a></li>
+<li><a href="#verification" id="toc-verification">Verification</a></li>
+<li><a href="#scope-guardrails" id="toc-scope-guardrails">Scope
+guardrails</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="plan-extend-cell_classifier-with-cycle-life-regression--survival-models">Plan:
+extend cell_classifier with cycle-life regression + survival models</h1>
+<h2 id="context">Context</h2>
+<p>Today <code>cell_classifier</code> only does binary N-cycle survival
+classification (<code>pass</code>/<code>bad</code> at N ∈ {200, 300,
+400}, RF only). The user wants three modeling capabilities added:</p>
+<ol type="1">
+<li><strong>Cycle-life regression</strong> with <strong>EBM</strong> and
+<strong>XGBoost</strong>. Cycle life is the cycle number at which
+retention crosses 0.85 and never recovers — that is
+<strong>exactly</strong> <code>last_fade_cycle</code> from the labels
+pipeline (verified: <code>labels.py::_last_crossing_into_bad</code>,
+RECOVERY_MIN=3, selftest cases cover the edges).</li>
+<li><strong>Target transformation</strong> to address skew. Verified
+distribution: raw <code>last_fade_cycle</code> spans 5–1052, median 310;
+sqrt compresses to 6.7–28.3 (still moderate skew), log to 3.8–6.7
+(well-conditioned). Box-Cox will land near log. <strong>Plan uses
+Box-Cox (or log fallback)</strong>; sqrt is offered as a model knob but
+not the default.</li>
+<li><strong>Random Survival Forest</strong> via scikit-survival, to
+handle the <strong>58% right-censoring rate</strong> (256 of 444
+trainable cells are <code>in_testing</code>). User confirmed
+full-survival scope.</li>
+</ol>
+<p>The classification surface must keep working unchanged. Env is
+<strong><code>mldashboard</code></strong> (not <code>eis</code>), per
+user.</p>
+<h2 id="data-semantics-verified-no-changes-to-ml_label_preprocess">Data
+semantics (verified, no changes to ml_label_preprocess)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>status</th>
+<th style="text-align: right;">count</th>
+<th>regression target</th>
+<th>survival (event, time)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>faded</td>
+<td style="text-align: right;">188</td>
+<td><code>last_fade_cycle</code></td>
+<td>(1, <code>last_fade_cycle</code>) — observed</td>
+</tr>
+<tr class="even">
+<td>in_testing</td>
+<td style="text-align: right;">256</td>
+<td>(drop for EBM; keep for survival)</td>
+<td>(0, <code>n_regular</code>) — censored</td>
+</tr>
+<tr class="odd">
+<td>excluded</td>
+<td style="text-align: right;">17</td>
+<td>drop everywhere</td>
+<td>drop</td>
+</tr>
+</tbody>
+</table>
+<p>EBM has no native censoring support → faded-only (188 cells, 168 AR /
+20 0MC). XGBoost-AFT and RSF use all 444 cells via the
+<code>(event, time)</code> pair.</p>
+<h2 id="three-phase-build">Three-phase build</h2>
+<h3 id="phase-1--plumbing--regression-ebm--xgb-on-faded-only">Phase 1 —
+plumbing + regression (EBM + XGB on faded-only)</h3>
+<p><strong>Goal</strong>: land the regression spine so the next two
+phases just plug models in.</p>
+<p>Files to add / change in <code>cell_classifier/</code>:</p>
+<ul>
+<li><code>src/cell_classifier/data/loader.py</code> — extend
+<code>Dataset</code> with:
+<ul>
+<li><code>event: np.ndarray</code> (bool, True iff
+<code>status == "faded"</code>)</li>
+<li><code>time: np.ndarray</code> (int, <code>last_fade_cycle</code> if
+faded else <code>n_regular</code>)</li>
+<li><code>y_cycle: np.ndarray</code> (cycle-life regression target for
+faded; NaN for censored)</li>
+<li>Loader signature gains
+<code>task: Literal["classification","regression","survival"]</code></li>
+<li><code>.faded_view()</code> analogous to existing
+<code>.labeled_view()</code> (loader.py:91–106)</li>
+<li>Extend <code>_LABEL_COLUMNS_DENYLIST</code> to include
+<code>last_fade_cycle</code>, <code>n_regular</code>,
+<code>status</code></li>
+</ul></li>
+<li><code>src/cell_classifier/preprocessing/target_transform.py</code>
+(new) — small wrapper that does Box-Cox (via
+<code>scipy.stats.boxcox</code>) or log/sqrt, stores λ on
+<code>.fit()</code>, exposes <code>transform/inverse_transform</code>.
+Defaults to <code>boxcox</code>. Used by regression models to fit on the
+transformed scale and report metrics on the <strong>untransformed
+scale</strong>.</li>
+<li><code>src/cell_classifier/models/base.py</code> — add a class attr
+<code>task: str</code> (default <code>"classification"</code>). Existing
+classifier subclasses keep working. Add a docstring noting that
+regression subclasses may override <code>predict_proba</code> to raise
+<code>NotImplementedError</code>.</li>
+<li><code>src/cell_classifier/models/xgb_classifier.py</code> (new) —
+<code>XGBClassifier</code> mirror of <code>RandomForestModel</code>.
+Drops in via existing sklearn-pipeline scaffold (random_forest.py:29–34
+pattern).</li>
+<li><code>src/cell_classifier/models/ebm_regressor.py</code> (new) —
+wraps <code>interpret.glassbox.ExplainableBoostingRegressor</code>. Task
+= regression. Wraps target_transform inside the sklearn pipeline.
+Replaces the stub at <code>models/ebm.py</code> (or sits beside it; the
+existing stub is for the classifier).</li>
+<li><code>src/cell_classifier/models/xgb_regressor.py</code> (new) —
+<code>XGBRegressor</code> with target_transform. Task = regression.
+Optuna search space: <code>n_estimators</code>, <code>max_depth</code>,
+<code>learning_rate</code>, <code>subsample</code>,
+<code>colsample_bytree</code>, <code>min_child_weight</code>,
+<code>gamma</code>, <code>reg_lambda</code>.</li>
+<li><code>src/cell_classifier/evaluation/regression_metrics.py</code>
+(new) — MAE, RMSE, R², median absolute error, computed on the
+<strong>untransformed cycle scale</strong>, plus per-cohort breakdowns
+(AR vs 0MC). Matches the cohort-aware pattern in
+<code>metrics.py:56–62</code>.</li>
+<li><code>src/cell_classifier/evaluation/importance.py</code> —
+parametrize the <code>scoring</code> arg of
+<code>permutation_importance</code> by task: <code>roc_auc</code> for
+classification, <code>r2</code> for regression, custom scorer for
+survival in Phase 3. (One-line conditional, file is already
+model-agnostic per [importance.py:42].)</li>
+<li><code>src/cell_classifier/pipelines/validation.py</code> and
+<code>production.py</code> — branch on <code>config["task"]</code> to
+choose metrics + which target to feed the model. Keep classification as
+the default branch unchanged.</li>
+<li><code>src/cell_classifier/cli.py</code> — add
+<code>--task {classification,regression,survival}</code> to the run
+parser (cli.py:206–234). Consistency check at config-resolve time:
+<code>args.task</code> must match the chosen model's <code>task</code>
+class attribute (cli.py:142–144 pattern).</li>
+<li><code>configs/ebm_regressor.yaml</code>,
+<code>configs/xgb_regressor.yaml</code>,
+<code>configs/xgb_classifier.yaml</code> (new) — siblings of
+<code>configs/rf.yaml</code>, with each model's defaults + Optuna search
+hint.</li>
+<li><code>pyproject.toml</code> — add
+<code>[project.optional-dependencies] xgb = ["xgboost"]</code> and
+bundle into <code>all</code>.</li>
+<li>Tests:
+<ul>
+<li><code>tests/test_loader_regression.py</code> — verifies
+<code>event</code>, <code>time</code>, <code>y_cycle</code> shapes;
+faded_view filters to 188; censored rows have event=False.</li>
+<li><code>tests/test_target_transform.py</code> — Box-Cox round-trip,
+log/sqrt round-trip.</li>
+<li><code>tests/test_models_xgb_regressor.py</code>,
+<code>tests/test_models_ebm_regressor.py</code> — fit/predict on a tiny
+synthetic dataset; assert untransformed predictions are in plausible
+range.</li>
+<li><code>tests/test_metrics_regression.py</code> — MAE/RMSE/R² match
+sklearn on hand-picked vectors.</li>
+<li>Update <code>tests/test_loader.py:33</code> and
+<code>tests/test_models_rf.py:30</code> to guard their binary-y
+assertions under <code>task=="classification"</code>.</li>
+<li>Update <code>tests/test_no_mode_branching.py</code> if it forbids
+non-mode dispatch (allow task branching).</li>
+</ul></li>
+</ul>
+<h3 id="phase-2--xgboost-aft-censoring-aware-xgb-no-new-framework">Phase
+2 — XGBoost-AFT (censoring-aware XGB, no new framework)</h3>
+<p><strong>Goal</strong>: use XGBoost's native <code>survival:aft</code>
+objective to handle censoring without dragging in
+<code>scikit-survival</code> yet.</p>
+<ul>
+<li><code>src/cell_classifier/models/xgb_aft.py</code> (new) — wraps
+<code>xgboost.XGBRegressor</code> (or low-level Booster) with
+<code>objective="survival:aft"</code>,
+<code>eval_metric="aft-nloglik"</code>. Fit signature accepts
+<code>(X, time, event)</code> and constructs the AFT label format
+internally:
+<ul>
+<li><code>y_lower = time</code></li>
+<li><code>y_upper = time</code> if <code>event</code> else
+<code>+∞</code></li>
+<li>tunable <code>aft_loss_distribution</code> ∈ {<code>normal</code>,
+<code>logistic</code>, <code>extreme</code>};
+<code>aft_loss_distribution_scale</code> as Optuna float.</li>
+</ul></li>
+<li><code>task = "survival"</code>. <code>predict(X)</code> returns
+log-cycle-life predictions; <code>predict_cycle_life(X)</code> returns
+<code>exp(predict(X))</code>. No <code>predict_proba</code>.</li>
+<li>Pipeline branch for <code>task=="survival"</code> consumes the new
+<code>event</code>/<code>time</code> fields from <code>Dataset</code>
+(Phase 1 already exposes them).</li>
+<li>Survival metrics module needed for Phase 2's evaluation (used by
+both AFT and RSF):
+<ul>
+<li><code>src/cell_classifier/evaluation/survival_metrics.py</code>
+(new) — wraps <code>sksurv.metrics.concordance_index_censored</code>
+(already installed if scikit-survival is in <code>mldashboard</code>;
+verify) and <code>integrated_brier_score</code>. Time-dependent AUC at
+the existing thresholds N ∈ {200, 300, 400} so survival numbers stay
+comparable to classification ones. If <code>scikit-survival</code> is
+not available, fall back to a hand-rolled C-index using only
+<code>(event, time)</code> — same formula, no dependency.</li>
+</ul></li>
+<li><code>configs/xgb_aft.yaml</code> (new).</li>
+<li>Tests: <code>tests/test_models_xgb_aft.py</code>,
+<code>tests/test_metrics_survival.py</code>.</li>
+</ul>
+<h3 id="phase-3--random-survival-forest">Phase 3 — Random Survival
+Forest</h3>
+<p><strong>Goal</strong>: full sksurv-backed RSF, the structured-target
+frontier.</p>
+<p>Required only in this phase (kept out of Phases 1–2 to limit blast
+radius):</p>
+<ul>
+<li><code>pyproject.toml</code> —
+<code>[project.optional-dependencies] survival = ["scikit-survival&gt;=0.22"]</code>.</li>
+<li><code>src/cell_classifier/data/loader.py</code> — emit
+<code>y_struct = sksurv.util.Surv.from_arrays(event, time)</code> when
+<code>task=="survival"</code> AND
+<code>model.requires_structured_y</code> is True (<code>xgb_aft</code>
+doesn't need it; RSF does).</li>
+<li><code>src/cell_classifier/models/rsf.py</code> (new) — wraps
+<code>sksurv.ensemble.RandomSurvivalForest</code>. Fit signature mirrors
+<code>xgb_aft.py</code>: accepts <code>(X, time, event)</code>,
+constructs the structured array internally. Hyperparameter space copied
+from the solstice reference (<code>n_estimators</code> 50–300,
+<code>max_depth</code> 5–20, <code>min_samples_split</code> 5–20,
+<code>min_samples_leaf</code> 5–20, <code>max_features</code> ∈ {sqrt,
+log2, None}) but adapted to Optuna's <code>suggest_*</code> calls
+instead of <code>RandomizedSearchCV</code>.</li>
+<li><code>predict(X)</code> returns the <strong>risk score</strong>
+(higher = sooner failure). Optional
+<code>predict_survival_curve(X)</code> returns the step-function array
+for downstream plotting; not used by sweep aggregation.</li>
+<li>SHAP for RSF is <strong>out of scope for this phase</strong> —
+<code>shap</code> does not natively support
+<code>sksurv.RandomSurvivalForest</code>. <code>compute_shap()</code>
+returns <code>None</code>; <code>shap.py</code> already handles that
+(shap.py:24–25). Permutation importance still works via a custom scorer
+wrapping <code>concordance_index_censored</code>.</li>
+<li><code>configs/rsf.yaml</code> (new).</li>
+<li>Tests: <code>tests/test_models_rsf.py</code> (skipped if
+<code>sksurv</code> import fails — pattern matches the existing
+optional-extras <code>try/except</code> in
+<code>registry.py:41–51</code>).</li>
+</ul>
+<h2 id="critical-files-to-be-modified-summary">Critical files to be
+modified (summary)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Phase</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>src/cell_classifier/data/loader.py</code></td>
+<td>1, 3</td>
+<td>Add event/time/y_cycle to Dataset; faded_view(); task-aware y
+emission; sksurv structured y in P3</td>
+</tr>
+<tr class="even">
+<td><code>src/cell_classifier/models/base.py</code></td>
+<td>1</td>
+<td><code>task</code> class attr; relax classification-only
+docstrings</td>
+</tr>
+<tr class="odd">
+<td><code>src/cell_classifier/models/registry.py</code></td>
+<td>1–3</td>
+<td>Guarded imports for xgb_*, ebm_regressor, rsf (pattern at
+registry.py:41–51)</td>
+</tr>
+<tr class="even">
+<td><code>src/cell_classifier/pipelines/validation.py</code></td>
+<td>1, 2, 3</td>
+<td>Task-branch on metrics + targets; the SHAP-scope fix
+(<code>b0c243f</code>) sets the precedent</td>
+</tr>
+<tr class="odd">
+<td><code>src/cell_classifier/pipelines/production.py</code></td>
+<td>1, 2, 3</td>
+<td>Same task-branch</td>
+</tr>
+<tr class="even">
+<td><code>src/cell_classifier/cli.py</code></td>
+<td>1</td>
+<td><code>--task</code> flag, model↔︎task consistency check</td>
+</tr>
+<tr class="odd">
+<td><code>src/cell_classifier/evaluation/importance.py</code></td>
+<td>1, 3</td>
+<td>Scoring-by-task; custom survival scorer in P3</td>
+</tr>
+<tr class="even">
+<td><code>pyproject.toml</code></td>
+<td>1, 3</td>
+<td><code>xgb</code> and <code>survival</code> extras</td>
+</tr>
+<tr class="odd">
+<td><code>README.md</code>, <code>ROADMAP.md</code></td>
+<td>each phase</td>
+<td>Document each capability as it lands</td>
+</tr>
+</tbody>
+</table>
+<h2 id="patterns--utilities-to-reuse-not-re-invent">Patterns / utilities
+to reuse (not re-invent)</h2>
+<ul>
+<li><strong>Registry guarded-import pattern</strong> at
+<code>registry.py:41–51</code> — every new model goes in this way.</li>
+<li><strong>sklearn Pipeline scaffold</strong> at
+<code>random_forest.py:29–34</code> — every new tree model uses the same
+<code>[imputer, estimator]</code> shape.</li>
+<li><strong>TransformedTargetRegressor</strong> from sklearn —
+first-class wrapper for Box-Cox / log targets; saves having to roll our
+own. Skip the custom <code>target_transform.py</code> if this lands
+cleanly; keep the module only if Box-Cox-with-stored-λ inside an Optuna
+inner loop forces it.</li>
+<li><strong><code>labeled_view()</code></strong> at
+<code>loader.py:91–106</code> — copy verbatim to make
+<code>faded_view()</code>.</li>
+<li><strong><code>shap_summary_scope</code> branching</strong> at
+<code>validation.py:303–310</code> (last commit, <code>b0c243f</code>) —
+proves the task-branching pattern is already established in the
+pipelines.</li>
+<li><strong><code>solstice_mlflow</code> RSF reference</strong> — borrow
+the HP space and stratification logic only; do NOT pull in its MLflow /
+data-loader scaffolding (incompatible with cell_classifier's clean
+interface).</li>
+</ul>
+<h2 id="verification">Verification</h2>
+<p>Each phase:</p>
+<ol type="1">
+<li><strong>Pytest gate</strong>: <code>pytest -q</code> in
+<code>mldashboard</code> env from <code>cell_classifier/</code>. New
+tests added per phase listed above; existing tests must still pass.</li>
+<li><strong>Smoke run</strong> end-to-end on the regenerated
+<code>A2.2_b1</code> bundle:
+<ul>
+<li>Phase 1:
+<code>cell-classifier run --mode validation --model-config configs/xgb_regressor.yaml --task regression --N 300 --db-version A2.2 --baseline-cycle 1 --feature-subset fs_cv --tuning-protocol tune_inner_cv</code>
+(cheap, surfaces wiring bugs fast).</li>
+<li>Phase 2: same with
+<code>configs/xgb_aft.yaml --task survival</code>.</li>
+<li>Phase 3: same with
+<code>configs/rsf.yaml --task survival</code>.</li>
+</ul></li>
+<li><strong>Smoke sweep</strong>: extend
+<code>configs/sweeps/rf_n_b1_smoke.yaml</code> (the YAML landed in
+<code>6de612c</code>) into a <code>model × N</code> sweep covering RF /
+XGBClass / EBMReg / XGBReg / XGBAFT / RSF at baseline=1 with 5 seeds and
+<code>n_trials=10</code>. Aggregate metrics land in
+<code>out/sweeps/&lt;sweep_id&gt;/metric_long.csv</code>; eyeball that
+classification numbers are unchanged from the pre-extension baseline and
+that regression/survival numbers look plausible (test_rmse on the order
+of 100–200 cycles for cycle-life regression; C-index in 0.65–0.85 for
+AFT/RSF).</li>
+</ol>
+<h2 id="scope-guardrails">Scope guardrails</h2>
+<ul>
+<li><strong>Do not touch <code>ml_label_preprocess/</code></strong> —
+<code>last_fade_cycle</code>, <code>n_regular</code>,
+<code>status</code> already give us everything. No new labels
+needed.</li>
+<li><strong>Classification remains a first-class task.</strong> Every
+change to the loader, pipelines, and CLI must preserve the existing
+<code>--task classification</code> (default) path with byte-identical
+outputs for the same config — verify via the per-seed metrics on a fixed
+seed before/after the loader refactor.</li>
+<li><strong>Use <code>mldashboard</code> env, not
+<code>eis</code>.</strong> Confirm <code>xgboost</code>,
+<code>interpret</code>, <code>scikit-survival</code> versions on first
+use; add to <code>pyproject.toml</code> extras only after confirming the
+env has them — do not pip-install into shared envs.</li>
+<li><strong>No new top-level dependencies in the base install.</strong>
+XGBoost and scikit-survival go under optional extras
+(<code>pip install -e .[xgb,survival]</code>) to keep
+<code>pip install -e .</code> cheap.</li>
+<li><strong>SHAP for RSF is explicitly deferred</strong> — note it in
+the README, don't ship a broken <code>compute_shap</code> for sksurv
+models.</li>
+</ul>
+</body>
+</html>
