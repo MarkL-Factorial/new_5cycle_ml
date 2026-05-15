@@ -1,0 +1,6 @@
+extends: base.yaml
+
+experiment_name: rf_n200
+model: random_forest
+N: 200
+out_dir: out/rf_n200

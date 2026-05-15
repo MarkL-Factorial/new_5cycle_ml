@@ -1,0 +1,12 @@
+# BART (Bayesian Additive Regression Trees) template — v0.2 stub.
+# Body raises NotImplementedError; see ROADMAP.md.
+
+model: bart
+
+tune:
+  n_trials: 50
+  inner_cv: 5
+  optimize: f1
+
+preprocessing:
+  imputer_strategy: median

@@ -1,0 +1,59 @@
+# Python build / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / lint / type caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual envs (the project uses the shared `eis`/`mldashboard` conda
+# env per workspace CLAUDE.md, but ignore local venvs defensively)
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Run artifacts — manifest.json, models, plots, metrics per run.
+# Path is fixed by src/cell_classifier/utils/discover.py (`out/runs/...`).
+out/
+
+# Per-invocation CLI logs written by scripts/run.py
+run_logs/
+
+# Manual verification gate outputs (run_all_gates.sh writes here).
+# Keep the script itself; drop its generated logs + STATUS.md.
+_verify_log/*.log
+_verify_log/STATUS.md
+
+# Claude Code — personal settings only (shared settings.json, if any,
+# stays tracked)
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+.claude/plans/

@@ -1,0 +1,18 @@
+# Sweep: Random Forest across (N, baseline_cycle).
+# Runs 6 experiments (N=200/300/400 × baseline=1/3) in validation mode with
+# nested CV. Output bundles land in results/runs/validation/<slug>__<timestamp>/;
+# aggregate in results/sweeps/<sweep_id>/.
+
+template: ../rf.yaml
+mode: validation
+tuning_protocol: nested_cv
+sweep_id: rf_n_x_baseline_20260514
+
+axes:
+  N: [200, 300, 400]
+  baseline_cycle: [1, 3]
+
+fixed:
+  model: random_forest
+  db_version: A2.2
+  feature_subset: fs_cv

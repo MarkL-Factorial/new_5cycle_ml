@@ -1,0 +1,52 @@
+# Python bytecode / build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments (this project uses the shared `eis` conda env;
+# never commit a per-project venv)
+.venv/
+venv/
+env/
+ENV/
+
+# Generated dataset bundles — these are pipeline outputs, regenerated
+# from $BAT_ANNOT_DIR by `python preprocess.py [--labels|--features|--all]`.
+# Per workspace CLAUDE.md: cell parquets/CSVs and manifests are not
+# committed into project repos.
+datasets/
+
+# Test / type-check / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Jupyter / notebook stragglers (in case any debugging notebooks land here)
+.ipynb_checkpoints/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Local environment overrides (BAT_ANNOT_DIR, BAT_DATA_DIR, etc.)
+.env
+.env.local

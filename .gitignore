@@ -1,0 +1,88 @@
+# Top-level .gitignore for new_5cycle_ml.
+#
+# Defense-in-depth — `cell_classifier/` and `ml_label_preprocess/` carry
+# their own .gitignore, but the legacy subprojects (`ml_classification/`,
+# `ml_label_preprocess_v3/`) do not, so this file catches their generated
+# artifacts as well.
+
+# ---------------------------------------------------------------------------
+# Python build / bytecode
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+
+# ---------------------------------------------------------------------------
+# Test / lint / type-check caches
+# ---------------------------------------------------------------------------
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ---------------------------------------------------------------------------
+# Virtual envs — workspace uses the shared `eis` conda env per CLAUDE.md;
+# never commit a per-project venv.
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# ---------------------------------------------------------------------------
+# Generated pipeline outputs — DO NOT commit (per workspace CLAUDE.md,
+# parquets / CSVs / model artifacts belong under data/ or are regeneratable).
+# ---------------------------------------------------------------------------
+# ml_label_preprocess{,_v3}/datasets/{db}_b{N}/cell_*.{parquet,csv} + manifest.json
+*/datasets/
+# cell_classifier/out/runs/... + ml_classification/out/rf_n*/...
+*/out/
+# cell_classifier may write here when out_root is overridden
+*/results/
+# Per-invocation CLI logs (cell_classifier/scripts)
+*/run_logs/
+# Manual verification gate outputs (keep the script, drop generated logs)
+*/_verify_log/*.log
+*/_verify_log/STATUS.md
+
+# ---------------------------------------------------------------------------
+# Jupyter
+# ---------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ---------------------------------------------------------------------------
+# Local environment overrides (BAT_ANNOT_DIR, BAT_DATA_DIR, BCC_*, …)
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+# ---------------------------------------------------------------------------
+# Editor / IDE / OS metadata
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Claude Code — personal settings only (shared settings.json stays tracked)
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+.claude/plans/

@@ -1,0 +1,13 @@
+# Random Forest model template.
+# Run axes (N, db_version, baseline_cycle, feature_subset, mode) come from
+# the CLI / sweep file, NOT this template.
+
+model: random_forest
+
+tune:
+  n_trials: 100
+  inner_cv: 5
+  optimize: f1
+
+preprocessing:
+  imputer_strategy: median

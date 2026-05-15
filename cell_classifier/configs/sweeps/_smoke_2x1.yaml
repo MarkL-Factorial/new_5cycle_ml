@@ -1,0 +1,16 @@
+template: ../rf.yaml
+mode: validation
+tuning_protocol: tune_inner_cv
+sweep_id: smoke_2x1
+axes:
+  N: [200, 300]
+  baseline_cycle: [1]
+fixed:
+  model: random_forest
+  db_version: A2.2
+  feature_subset: fs_cv
+  out_root: /tmp/cc_gates
+  seeds: [1, 2, 3]
+  tune:
+    n_trials: 5
+    inner_cv: 3

@@ -1,0 +1,12 @@
+seeds: [42, 1729, 2718, 31415, 161803, 577215, 6022, 8314, 9109, 6626]
+
+split:
+  train_frac: 0.8
+  test_frac: 0.2
+
+tune:
+  n_trials: 100
+  inner_cv: 5
+  optimize: roc_auc
+
+feature_subset: fs_cv

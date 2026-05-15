@@ -1,0 +1,12 @@
+# EBM (Explainable Boosting Machine) template — v0.2 stub.
+# Body raises NotImplementedError; see ROADMAP.md.
+
+model: ebm
+
+tune:
+  n_trials: 100
+  inner_cv: 5
+  optimize: f1
+
+preprocessing:
+  imputer_strategy: median
