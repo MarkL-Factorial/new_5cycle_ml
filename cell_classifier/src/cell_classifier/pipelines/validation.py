@@ -13,6 +13,14 @@ Either way, persists per_seed_metrics.csv, summary.json, feature_importance.csv,
 shap_per_seed.parquet, shap_summary.csv, optuna_history.csv (populated for
 both protocols), best_params_per_seed.csv OR best_params_per_fold.csv,
 best_params_summary.json, manifest.json, plots/.
+
+SHAP / permutation-importance scope (manifest's `shap_summary_scope`):
+  - tune_inner_cv → "test_set"                 (held-out 20%, out-of-sample)
+  - nested_cv    → "full_labeled_diagnostic"   (in-sample, see comment at
+                                                the diagnostic-model block)
+The reported metrics in per_seed_metrics.csv / summary.json are out-of-fold
+under either protocol. The in-sample caveat applies only to the SHAP and
+permutation-importance summaries under nested_cv.
 """
 
 from __future__ import annotations
@@ -197,8 +205,15 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
             })
 
             # Diagnostic model on the full labeled set for importance + SHAP.
-            # Uses fold 0's HPs purely as a representative — these aggregate
-            # frames are summaries, not the per-fold evaluation truth.
+            # nested_cv has no fixed test set (every cell is in test exactly
+            # once across folds), so to produce a single coherent SHAP /
+            # permutation-importance summary we fit a separate model on the
+            # full labeled set and evaluate the explanation on the same rows.
+            # This is IN-SAMPLE: cross-feature rankings are still useful, but
+            # absolute permutation-importance magnitudes are biased upward
+            # and SHAP magnitudes reflect in-sample fit. The manifest records
+            # this via shap_summary_scope="full_labeled_diagnostic".
+            # Uses fold 0's HPs as the representative.
             diag_params = result.per_fold_best_params[0]
             diag_model = train(
                 ModelClass, diag_params, labeled.X, labeled.y, seed=seed,
@@ -289,13 +304,20 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
 
     # --- Manifest ---
     preprocess_manifest = _load_preprocess_manifest(ds.source_dir)
+    # tune_inner_cv: SHAP / permutation importance are computed on the
+    # held-out 20% test set per seed. nested_cv: there is no fixed test
+    # set, so a "diagnostic" model is fit on the full labeled set and
+    # SHAP / importance are computed on the same rows — in-sample.
+    shap_scope = (
+        "test_set" if protocol == "tune_inner_cv" else "full_labeled_diagnostic"
+    )
     manifest = build_manifest(
         config=config,
         runtime_seconds=time.time() - t0,
         n_cells_labeled_trainable=int(labeled.label_mask.sum()),
         n_cells_scored=int(labeled.label_mask.sum()),
         preprocess_manifest=preprocess_manifest,
-        shap_summary_scope="test_set",
+        shap_summary_scope=shap_scope,
     )
     write_manifest(out_dir, manifest)
 

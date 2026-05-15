@@ -53,6 +53,25 @@ Each run folder contains:
   `column_roles.yaml` (so the folder is independently reproducible)
 - per-seed metrics, plots, feature importance, SHAP, Optuna history, etc.
 
+### SHAP / permutation-importance scope
+
+`feature_importance.csv` and `shap_summary.csv` mean different things
+under the two tuning protocols. The manifest records this via
+`shap_summary_scope`:
+
+- **`tune_inner_cv` → `shap_summary_scope: "test_set"`** — both summaries
+  are computed on the held-out 20% test set per seed. Out-of-sample, safe
+  to interpret as "what features the model relies on at test time."
+- **`nested_cv` → `shap_summary_scope: "full_labeled_diagnostic"`** —
+  nested CV has no fixed test set (every cell is in test exactly once
+  across folds), so the SHAP / importance summary comes from a
+  *separate diagnostic model* fit on the full labeled set and explained
+  on the same rows. **This is in-sample.** Cross-feature rankings remain
+  useful, but absolute permutation-importance magnitudes are biased
+  upward and SHAP magnitudes reflect in-sample fit. The metrics in
+  `per_seed_metrics.csv` and `summary.json` are unaffected — those come
+  from out-of-fold predictions.
+
 ## Notebooks
 
 Once installed via `pip install -e .`, notebooks can import directly:
