@@ -1,0 +1,12 @@
+# XGBoost binary classifier template.
+# Data axes (task, N, db_version, baseline_cycle, feature_subset) come from CLI, not here.
+
+model: xgb_classifier
+
+tune:
+  n_trials: 50
+  inner_cv: 5
+  optimize: roc_auc
+
+preprocessing:
+  imputer_strategy: median

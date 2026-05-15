@@ -1,0 +1,12 @@
+# EBM cycle-life regressor template.
+
+model: ebm_regressor
+
+tune:
+  n_trials: 25  # EBM is slower per-fit, so fewer trials
+  inner_cv: 5
+  optimize: neg_mae
+
+preprocessing:
+  imputer_strategy: median
+  target_transform: boxcox

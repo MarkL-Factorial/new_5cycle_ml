@@ -1,0 +1,30 @@
+# Python build / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Run artifacts — local + cloud routine outputs (also covered by root .gitignore)
+run_logs/
+out/
+results/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

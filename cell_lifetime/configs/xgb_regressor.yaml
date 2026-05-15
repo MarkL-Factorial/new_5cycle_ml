@@ -1,0 +1,12 @@
+# XGBoost cycle-life regressor template.
+
+model: xgb_regressor
+
+tune:
+  n_trials: 50
+  inner_cv: 5
+  optimize: neg_mae
+
+preprocessing:
+  imputer_strategy: median
+  target_transform: sqrt
