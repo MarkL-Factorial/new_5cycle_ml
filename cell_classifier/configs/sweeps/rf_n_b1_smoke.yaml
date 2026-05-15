@@ -1,0 +1,23 @@
+# Sweep: RF smoke across N at baseline=1.
+# 3 validation runs (N=200/300/400) with tune_inner_cv, n_trials=10, 5 seeds.
+# Output lands in results/runs/validation/<slug>__<timestamp>/;
+# aggregate in results/sweeps/rf_n_b1_smoke_20260515/.
+
+template: ../rf.yaml
+mode: validation
+tuning_protocol: tune_inner_cv
+sweep_id: rf_n_b1_smoke_20260515
+
+axes:
+  N: [200, 300, 400]
+
+fixed:
+  model: random_forest
+  db_version: A2.2
+  baseline_cycle: 1
+  feature_subset: fs_cv
+  seeds: [1, 2, 3, 4, 5]
+  tune:
+    n_trials: 10
+    inner_cv: 3
+    optimize: f1

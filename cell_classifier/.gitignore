@@ -47,6 +47,11 @@ out/
 # Per-invocation CLI logs written by scripts/run.py
 run_logs/
 
+# Slurm job stdout/stderr (scripts/slurm_train.sh writes to
+# cell_classifier_<jobid>.{log,err}.out in cwd)
+*.log.out
+*.err.out
+
 # Manual verification gate outputs (run_all_gates.sh writes here).
 # Keep the script itself; drop its generated logs + STATUS.md.
 _verify_log/*.log
