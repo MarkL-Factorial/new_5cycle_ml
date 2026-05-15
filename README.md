@@ -25,15 +25,15 @@ conda activate eis`.
 
 ## Layout
 
-| Path                     | Role                                                  | Status        |
-|--------------------------|-------------------------------------------------------|---------------|
-| [ml_label_preprocess/](ml_label_preprocess/README.md)     | Labeling + feature extraction (current canonical) | active        |
-| [cell_classifier/](cell_classifier/README.md)             | N-cycle survival classifier (src/ layout, console entry) | active        |
-| [ml_label_preprocess_v3/](ml_label_preprocess_v3/)         | Earlier copy of the labeling pipeline             | **legacy — to be removed** |
-| [ml_classification/](ml_classification/)                   | Older classifier predating `cell_classifier`      | **legacy — to be removed** |
+| Path                     | Role                                                  |
+|--------------------------|-------------------------------------------------------|
+| [ml_label_preprocess/](ml_label_preprocess/README.md)     | Labeling + feature extraction                     |
+| [cell_classifier/](cell_classifier/README.md)             | N-cycle survival classifier (src/ layout, console entry) |
 
-When in doubt, the two `active` directories are authoritative — ignore
-the legacy ones for new work.
+Two earlier subprojects — `ml_label_preprocess_v3/` and
+`ml_classification/` — still exist in some local working copies but are
+excluded from this repo via `.gitignore`. They are slated for removal;
+ignore them for new work.
 
 ---
 
