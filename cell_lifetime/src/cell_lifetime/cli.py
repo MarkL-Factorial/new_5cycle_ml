@@ -75,8 +75,14 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         seeds = [1, 2, 3]
     config["seeds"] = seeds
 
-    # Out path
-    out_root = Path(args.out_root) if args.out_root else Path.cwd() / "cell_lifetime/out"
+    # Out path — anchor to the cell_lifetime/ package dir so the output
+    # location is stable regardless of where the CLI is invoked from.
+    # (Previously this concatenated "cell_lifetime/out" onto cwd, which
+    # produced cell_lifetime/cell_lifetime/out when run from cell_lifetime/.)
+    if args.out_root:
+        out_root = Path(args.out_root)
+    else:
+        out_root = Path(__file__).resolve().parents[2] / "out"
     slug = _slug(
         config["model"], config["task"], config["N"], config["db_version"],
         config["baseline_cycle"], config["feature_subset"],

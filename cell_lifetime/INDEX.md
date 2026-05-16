@@ -1,13 +1,30 @@
 # cell_lifetime INDEX
 
 Branch: `feature/cell_lifetime`
-Last updated: 2026-05-15 (initialized by Phase 1 in-session)
+Last updated: 2026-05-15T22:00:00Z
 
 ## Phase log (append-only)
 
 | Phase | Surface | Started (UTC) | Ended (UTC) | Status | Commit | Files added | Tests run | Tests pass | Log/Summary |
 |-------|---------|---------------|-------------|--------|--------|-------------|-----------|------------|-------------|
-| phase1_regression_spine | in-session | 2026-05-15 | (pending) | (pending) | (pending) | ~30 | (pending) | (pending) | run_logs/phase1.summary.md |
+| phase1_regression_spine | in-session | 2026-05-15T21:14Z | 2026-05-15T21:52Z | OK | cfb5ce4 | 38 | 28 | 28 | run_logs/20260515T215136Z_smoke_phase1.log |
+
+## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
+
+| Model | Task | Transform | Test metric | Runtime |
+|-------|------|-----------|-------------|---------|
+| xgb_classifier | classification | — | F1 = 0.853, AUC = (1 seed) | 9.5s |
+| xgb_regressor  | regression     | sqrt | MAE = 129.7 cycles | 7.6s |
+| ebm_regressor  | regression     | boxcox (λ≈0.534) | MAE = 138.3 cycles | 64.8s |
+
+Sanity bounds: faded-cell cycle life median = 317, range 6–1052; MAE ~130 cycles is ~40% of median (12 features, no tuning depth). XGB classifier F1=0.85 matches the cell_classifier RF baseline magnitude at N=300.
+
+## Pending phases
+
+| Phase | Routine ID | Fires (UTC) | Status |
+|-------|------------|-------------|--------|
+| phase2_xgb_aft | trig_016VCZuFhZmi3piDF1xG6ZhD | 2026-05-16T14:00Z | scheduled |
+| phase3_rsf_and_summary | trig_01TUVoTc8oA6Utag2wEcbWJS | 2026-05-17T02:00Z | scheduled |
 
 ## Files (alphabetical by path)
 
