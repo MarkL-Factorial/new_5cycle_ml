@@ -29,6 +29,11 @@ from cell_lifetime.data.loader import load_dataset, CycleLifeDataset
 from cell_lifetime.evaluation.regression_metrics import regression_metrics, prefix
 from cell_lifetime.models.registry import get_model_class
 
+try:
+    from cell_lifetime.evaluation.survival_metrics import survival_metrics
+except ImportError:  # sksurv unavailable
+    survival_metrics = None  # type: ignore
+
 
 def _classification_metrics(
     y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray | None,
@@ -84,15 +89,55 @@ def _objective_regression(trial, ModelClass, X, y, inner_cv, optimize, imputer_s
     return float(np.mean(scores))
 
 
-def _tune(task, ModelClass, X, y, *, n_trials, inner_cv, seed, optimize, imputer_strategy, target_transform):
+def _normalize_risk(model, X) -> np.ndarray:
+    """Convert a survival model's predict() into risk-positive scores.
+
+    sksurv's concordance_index_censored expects higher score = sooner
+    failure. AFT models predict log-time (higher = later failure) — we
+    negate. RSF predicts risk directly — we pass through.
+    """
+    raw = np.asarray(model.predict(X), dtype=float)
+    orientation = getattr(model, "risk_orientation", "time_high")
+    return -raw if orientation == "time_high" else raw
+
+
+def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize, imputer_strategy):
+    """Inner-CV objective for survival models: average C-index across folds."""
+    from sklearn.model_selection import StratifiedKFold
+    params = ModelClass.suggest_params(trial)
+    scores: list[float] = []
+    # Stratify by event so each fold has a similar censored/observed mix
+    skf = StratifiedKFold(n_splits=inner_cv, shuffle=True, random_state=trial.number)
+    for tr_idx, va_idx in skf.split(X, event):
+        m = ModelClass(params, imputer_strategy=imputer_strategy)
+        m.fit(X.iloc[tr_idx], time[tr_idx], event[tr_idx])
+        risk_va = _normalize_risk(m, X.iloc[va_idx])
+        # Inline C-index to avoid the survival_metrics import dance
+        if survival_metrics is None:
+            raise RuntimeError("scikit-survival not installed; cannot run survival task")
+        out = survival_metrics(event[va_idx], time[va_idx], risk_va)
+        c = out.get("c_index", float("nan"))
+        if not np.isnan(c):
+            scores.append(c)
+    if not scores:
+        return float("nan")
+    return float(np.mean(scores))
+
+
+def _tune(task, ModelClass, X, y_or_time, *, n_trials, inner_cv, seed, optimize,
+          imputer_strategy, target_transform, event=None):
     sampler = optuna.samplers.TPESampler(seed=seed)
     study = optuna.create_study(direction="maximize", sampler=sampler)
     if task == "classification":
-        obj = lambda t: _objective_classification(t, ModelClass, X, y, inner_cv, optimize, imputer_strategy, target_transform)
+        obj = lambda t: _objective_classification(t, ModelClass, X, y_or_time, inner_cv, optimize, imputer_strategy, target_transform)
     elif task == "regression":
-        obj = lambda t: _objective_regression(t, ModelClass, X, y, inner_cv, optimize, imputer_strategy, target_transform)
+        obj = lambda t: _objective_regression(t, ModelClass, X, y_or_time, inner_cv, optimize, imputer_strategy, target_transform)
+    elif task == "survival":
+        if event is None:
+            raise ValueError("event array required for survival tuning")
+        obj = lambda t: _objective_survival(t, ModelClass, X, y_or_time, event, inner_cv, optimize, imputer_strategy)
     else:
-        raise ValueError(f"task {task!r} not supported in Phase 1 validation")
+        raise ValueError(f"unknown task {task!r}")
     study.optimize(obj, n_trials=n_trials, show_progress_bar=False)
     return study.best_params, study
 
@@ -104,9 +149,9 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     task = config.get("task", "classification")
-    if task == "survival":
-        raise NotImplementedError(
-            "task='survival' is Phase 2/3 territory. Phase 1 supports classification + regression."
+    if task == "survival" and survival_metrics is None:
+        raise RuntimeError(
+            "task='survival' requires scikit-survival; pip install -e .[survival]"
         )
 
     ds = load_dataset(
@@ -148,52 +193,78 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
         seed_t0 = time.time()
         print(f"[validation/{task}] seed={seed} ({idx}/{len(seeds)}) starting...", flush=True)
 
+        # Stratify by event for survival, by class for classification, plain otherwise.
         if task == "classification":
             tr_idx, te_idx = train_test_split(
                 np.arange(len(view)), test_size=test_frac, random_state=seed,
                 stratify=y,
+            )
+        elif task == "survival":
+            tr_idx, te_idx = train_test_split(
+                np.arange(len(view)), test_size=test_frac, random_state=seed,
+                stratify=view.event,
             )
         else:
             tr_idx, te_idx = train_test_split(
                 np.arange(len(view)), test_size=test_frac, random_state=seed,
             )
         X_tr, X_te = view.X.iloc[tr_idx], view.X.iloc[te_idx]
-        y_tr, y_te = y[tr_idx], y[te_idx]
         cohorts_te = view.cohorts[te_idx]
 
-        best_params, study = _tune(
-            task, ModelClass, X_tr, y_tr,
-            n_trials=n_trials, inner_cv=inner_cv, seed=seed,
-            optimize=optimize, imputer_strategy=imputer_strategy,
-            target_transform=target_transform,
-        )
+        if task == "survival":
+            time_tr, time_te = view.time[tr_idx], view.time[te_idx]
+            event_tr, event_te = view.event[tr_idx], view.event[te_idx]
+        else:
+            y_tr, y_te = y[tr_idx], y[te_idx]
+
+        # Tune
+        if task == "survival":
+            best_params, study = _tune(
+                task, ModelClass, X_tr, time_tr,
+                n_trials=n_trials, inner_cv=inner_cv, seed=seed,
+                optimize=optimize, imputer_strategy=imputer_strategy,
+                target_transform=None, event=event_tr,
+            )
+        else:
+            best_params, study = _tune(
+                task, ModelClass, X_tr, y_tr,
+                n_trials=n_trials, inner_cv=inner_cv, seed=seed,
+                optimize=optimize, imputer_strategy=imputer_strategy,
+                target_transform=target_transform,
+            )
         hp_rows.append({"seed": seed, **best_params})
 
-        # Final fit
+        # Final fit + score
         if task == "classification":
             model = ModelClass(best_params, imputer_strategy=imputer_strategy)
-        else:
-            model = ModelClass(best_params, imputer_strategy=imputer_strategy, target_transform=target_transform)
-        model.fit(X_tr, y_tr)
-
-        if task == "classification":
+            model.fit(X_tr, y_tr)
             pred = model.predict(X_te)
             proba = model.predict_proba(X_te)[:, 1]
             m = _classification_metrics(y_te, pred, proba, cohorts_te)
-        else:
+            head_metric = ("f1", m.get("f1"))
+        elif task == "regression":
+            model = ModelClass(best_params, imputer_strategy=imputer_strategy, target_transform=target_transform)
+            model.fit(X_tr, y_tr)
             pred = model.predict(X_te)
             m = regression_metrics(y_te, pred, cohorts_te)
+            head_metric = ("mae", m.get("mae"))
+        else:  # survival
+            model = ModelClass(best_params, imputer_strategy=imputer_strategy)
+            model.fit(X_tr, time_tr, event_tr)
+            risk_te = _normalize_risk(model, X_te)
+            assert survival_metrics is not None
+            m = survival_metrics(event_te, time_te, risk_te, cohorts=cohorts_te)
+            head_metric = ("c_index", m.get("c_index"))
 
         rows.append({
             "seed": seed,
-            "inner_cv_score": float(study.best_value),
+            "inner_cv_score": float(study.best_value) if not np.isnan(study.best_value) else float("nan"),
             "tune_objective": optimize,
             **prefix(m, "test_"),
         })
         print(
             f"[validation/{task}] seed={seed} done in {time.time() - seed_t0:.1f}s — "
-            f"test_{('f1' if task == 'classification' else 'mae')}="
-            f"{m.get('f1', m.get('mae')):.3f}",
+            f"test_{head_metric[0]}={head_metric[1]:.3f}",
             flush=True,
         )
 
@@ -249,8 +320,10 @@ def _build_summary(per_seed_df, view, config, task) -> dict[str, Any]:
     }
     if task == "classification":
         metric_cols = ("f1", "accuracy", "precision", "recall", "roc_auc")
-    else:
+    elif task == "regression":
         metric_cols = ("mae", "rmse", "r2", "medae")
+    else:  # survival
+        metric_cols = ("c_index", "auc_at_200", "auc_at_300", "auc_at_400")
     for metric in metric_cols:
         col = f"test_{metric}"
         if col in per_seed_df.columns:

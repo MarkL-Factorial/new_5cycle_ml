@@ -22,11 +22,21 @@ from cell_classifier.models.base import BaseModel
 
 
 class CycleLifeModel(BaseModel):
-    """Marker subclass adding a `task` axis.
+    """Marker subclass adding a `task` axis + `risk_orientation` for survival.
 
     Subclasses MUST set `task` to one of "classification", "regression",
     "survival". The pipeline reads this attribute to pick targets +
     metrics + masks.
+
+    For `task == "survival"`, subclasses also declare `risk_orientation`:
+      - "risk_high"  → predict(X) returns risk scores (higher = sooner failure).
+                       Feed directly to concordance_index_censored.
+      - "time_high"  → predict(X) returns predicted time / log-time
+                       (higher = later failure). The pipeline negates before
+                       computing C-index. XGB-AFT uses this.
+
+    Regression/classification subclasses ignore `risk_orientation`.
     """
 
     task: ClassVar[str] = "regression"  # default; subclasses override
+    risk_orientation: ClassVar[str] = "time_high"  # only meaningful for task='survival'

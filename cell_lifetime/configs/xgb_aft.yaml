@@ -1,0 +1,12 @@
+# XGBoost-AFT survival model template.
+# Data axes (task, N, db_version, baseline_cycle, feature_subset) come from CLI.
+
+model: xgb_aft
+
+tune:
+  n_trials: 30
+  inner_cv: 5
+  optimize: c_index
+
+preprocessing:
+  imputer_strategy: median
