@@ -1,0 +1,70 @@
+[validation/regression] N=300 db=A2.2 b=1 model=ebm_regressor subset=fs_cv n_rows=187 n_features=12
+[validation/regression] seed=1 (1/5) starting...
+[validation/regression] seed=1 done in 341.2s — test_mae=133.278
+[validation/regression] seed=2 (2/5) starting...
+/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/preprocessing/target_transform.py:94: RuntimeWarning: invalid value encountered in power
+  return np.power(lam * y_t + 1.0, 1.0 / lam)
+[W 2026-05-16 15:31:07,682] Trial 25 failed with parameters: {'max_bins': 512, 'max_interaction_bins': 56, 'interactions': 6, 'learning_rate': 0.04666807116299507, 'min_samples_leaf': 7, 'max_leaves': 7} because of the following error: ValueError('Input contains NaN.').
+Traceback (most recent call last):
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/_optimize.py", line 201, in _run_trial
+    value_or_values = func(trial)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 142, in <lambda>
+    obj = lambda t: _objective_regression(t, ModelClass, X, y_or_time, inner_cv, optimize, imputer_strategy, target_transform)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 88, in _objective_regression
+    scores.append(-mean_absolute_error(y[va_idx], pred))
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/_param_validation.py", line 216, in wrapper
+    return func(*args, **kwargs)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 277, in mean_absolute_error
+    _check_reg_targets_with_floating_dtype(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 198, in _check_reg_targets_with_floating_dtype
+    y_type, y_true, y_pred, multioutput = _check_reg_targets(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 106, in _check_reg_targets
+    y_pred = check_array(y_pred, ensure_2d=False, dtype=dtype)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1107, in check_array
+    _assert_all_finite(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input contains NaN.
+[W 2026-05-16 15:31:07,687] Trial 25 failed with value None.
+Traceback (most recent call last):
+  File "/home/mliao/miniconda3/envs/mldashboard/bin/cell-lifetime", line 7, in <module>
+    sys.exit(main())
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/cli.py", line 154, in main
+    return _run(args)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/cli.py", line 134, in _run
+    run_validation(config, out_dir=out_dir)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 238, in run_validation
+    best_params, study = _tune(
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 149, in _tune
+    study.optimize(obj, n_trials=n_trials, show_progress_bar=False)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/study.py", line 490, in optimize
+    _optimize(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/_optimize.py", line 63, in _optimize
+    _optimize_sequential(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/_optimize.py", line 160, in _optimize_sequential
+    frozen_trial_id = _run_trial(study, func, catch)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/_optimize.py", line 258, in _run_trial
+    raise func_err
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/optuna/study/_optimize.py", line 201, in _run_trial
+    value_or_values = func(trial)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 142, in <lambda>
+    obj = lambda t: _objective_regression(t, ModelClass, X, y_or_time, inner_cv, optimize, imputer_strategy, target_transform)
+  File "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/src/cell_lifetime/pipelines/validation.py", line 88, in _objective_regression
+    scores.append(-mean_absolute_error(y[va_idx], pred))
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/_param_validation.py", line 216, in wrapper
+    return func(*args, **kwargs)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 277, in mean_absolute_error
+    _check_reg_targets_with_floating_dtype(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 198, in _check_reg_targets_with_floating_dtype
+    y_type, y_true, y_pred, multioutput = _check_reg_targets(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/metrics/_regression.py", line 106, in _check_reg_targets
+    y_pred = check_array(y_pred, ensure_2d=False, dtype=dtype)
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1107, in check_array
+    _assert_all_finite(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input contains NaN.

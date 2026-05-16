@@ -89,6 +89,18 @@ def _boxcox_apply(y: np.ndarray, lam: float) -> np.ndarray:
 
 
 def _boxcox_invert(y_t: np.ndarray, lam: float) -> np.ndarray:
+    """Numerically-safe Box-Cox inverse.
+
+    The naive formula `(lam*y_t + 1)**(1/lam)` produces NaN whenever
+    `lam*y_t + 1 < 0` (fractional power of a negative number). This
+    happens when an aggressive model predicts a transformed-y below
+    `-1/lam` (≈ -1.87 for lam=0.534). We clip the inside of the power
+    to a small positive epsilon so the inverse becomes a tiny-but-finite
+    cycle life rather than NaN — which lets metrics (MAE/RMSE) keep
+    working without dropping the trial.
+    """
     if abs(lam) < 1e-12:
-        return np.exp(y_t)
-    return np.power(lam * y_t + 1.0, 1.0 / lam)
+        return np.exp(np.clip(y_t, -50.0, 50.0))
+    inside = lam * y_t + 1.0
+    inside = np.maximum(inside, 1e-12)
+    return np.power(inside, 1.0 / lam)

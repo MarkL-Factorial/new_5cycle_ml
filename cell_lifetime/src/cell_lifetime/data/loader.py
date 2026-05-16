@@ -62,15 +62,39 @@ def _resolve_preprocess_root(override: Optional[str] = None) -> Path:
 
 
 def _load_feature_subset(subset_name: str, preprocess_root: Optional[str] = None) -> list[str]:
+    """Resolve a feature-subset name to a list of column names.
+
+    Two resolution paths:
+
+    1. **Named subset from the manifest** (`subsets:` block). Example: `fs_cv` →
+       the 12 CV-phase features used for the legacy report. This is the
+       upstream-controlled path; ml_label_preprocess owns the definitions.
+
+    2. **`fs_all`** (added by cell_lifetime): every column under
+       `datasets.cell_features.columns` whose `role == "feature"`. Built
+       on the fly so we don't need to modify the upstream manifest to
+       expose the full feature set (40 columns on A2.2_b1). cell_lifetime
+       owns this name; if ml_label_preprocess later defines its own
+       `fs_all` subset, the manifest one wins.
+    """
     path = column_roles_path(preprocess_root)
     manifest = yaml.safe_load(path.read_text())
     subsets = manifest.get("subsets", {})
-    if subset_name not in subsets:
-        raise KeyError(
-            f"subset {subset_name!r} not in {path}::subsets "
-            f"(available: {sorted(subsets)})"
-        )
-    return list(subsets[subset_name]["members"])
+    if subset_name in subsets:
+        return list(subsets[subset_name]["members"])
+    if subset_name == "fs_all":
+        cols = manifest.get("datasets", {}).get("cell_features", {}).get("columns", [])
+        members = [c["name"] for c in cols if c.get("role") == "feature"]
+        if not members:
+            raise KeyError(
+                f"fs_all resolved to 0 columns under {path}::datasets.cell_features.columns "
+                f"(check the manifest's role field)"
+            )
+        return members
+    raise KeyError(
+        f"subset {subset_name!r} not found in {path}::subsets "
+        f"(available: {sorted(list(subsets) + ['fs_all'])})"
+    )
 
 
 @dataclass

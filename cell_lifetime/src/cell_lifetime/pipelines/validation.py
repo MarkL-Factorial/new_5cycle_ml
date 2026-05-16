@@ -77,15 +77,28 @@ def _objective_classification(trial, ModelClass, X, y, inner_cv, optimize, imput
 
 
 def _objective_regression(trial, ModelClass, X, y, inner_cv, optimize, imputer_strategy, target_transform):
+    """Inner-CV MAE objective. Skips folds whose predictions go non-finite.
+
+    Some configurations (e.g. EBM with high `interactions` × Box-Cox
+    target) can produce NaN/inf on a held-out fold. We drop those folds
+    rather than failing the whole trial.
+    """
     params = ModelClass.suggest_params(trial)
-    scores = []
+    scores: list[float] = []
+    n_skipped = 0
     kf = KFold(n_splits=inner_cv, shuffle=True, random_state=trial.number)
     for tr_idx, va_idx in kf.split(X):
         m = ModelClass(params, imputer_strategy=imputer_strategy, target_transform=target_transform)
         m.fit(X.iloc[tr_idx], y[tr_idx])
         pred = m.predict(X.iloc[va_idx])
-        # optuna maximizes; use -MAE so larger = better
+        if not np.all(np.isfinite(pred)):
+            n_skipped += 1
+            continue
         scores.append(-mean_absolute_error(y[va_idx], pred))
+    trial.set_user_attr("n_skipped_folds", n_skipped)
+    if not scores:
+        # All folds went non-finite — return a very bad score so Optuna avoids this region
+        return -1e9
     return float(np.mean(scores))
 
 
@@ -102,23 +115,31 @@ def _normalize_risk(model, X) -> np.ndarray:
 
 
 def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize, imputer_strategy):
-    """Inner-CV objective for survival models: average C-index across folds."""
+    """Inner-CV objective for survival models: average C-index across folds.
+
+    Tracks the count of folds that produced NaN C-index via
+    `trial.set_user_attr('n_skipped_folds', ...)` so anomalies in the
+    Optuna history are diagnosable.
+    """
     from sklearn.model_selection import StratifiedKFold
     params = ModelClass.suggest_params(trial)
     scores: list[float] = []
+    n_skipped = 0
     # Stratify by event so each fold has a similar censored/observed mix
     skf = StratifiedKFold(n_splits=inner_cv, shuffle=True, random_state=trial.number)
     for tr_idx, va_idx in skf.split(X, event):
         m = ModelClass(params, imputer_strategy=imputer_strategy)
         m.fit(X.iloc[tr_idx], time[tr_idx], event[tr_idx])
         risk_va = _normalize_risk(m, X.iloc[va_idx])
-        # Inline C-index to avoid the survival_metrics import dance
         if survival_metrics is None:
             raise RuntimeError("scikit-survival not installed; cannot run survival task")
         out = survival_metrics(event[va_idx], time[va_idx], risk_va)
         c = out.get("c_index", float("nan"))
-        if not np.isnan(c):
-            scores.append(c)
+        if np.isnan(c):
+            n_skipped += 1
+            continue
+        scores.append(c)
+    trial.set_user_attr("n_skipped_folds", n_skipped)
     if not scores:
         return float("nan")
     return float(np.mean(scores))
@@ -187,6 +208,7 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
 
     rows: list[dict[str, Any]] = []
     hp_rows: list[dict[str, Any]] = []
+    prediction_rows: list[dict[str, Any]] = []  # per-cell test predictions across seeds
     seeds = list(config["seeds"])
     for idx, seed in enumerate(seeds, 1):
         seed = int(seed)
@@ -234,7 +256,8 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
             )
         hp_rows.append({"seed": seed, **best_params})
 
-        # Final fit + score
+        # Final fit + score + per-cell prediction dump
+        cells_te = view.cell_names[te_idx]
         if task == "classification":
             model = ModelClass(best_params, imputer_strategy=imputer_strategy)
             model.fit(X_tr, y_tr)
@@ -242,19 +265,36 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
             proba = model.predict_proba(X_te)[:, 1]
             m = _classification_metrics(y_te, pred, proba, cohorts_te)
             head_metric = ("f1", m.get("f1"))
+            for j in range(len(te_idx)):
+                prediction_rows.append({
+                    "seed": seed, "cell_name": cells_te[j], "cohort": cohorts_te[j],
+                    "y_true": int(y_te[j]), "y_pred": int(pred[j]), "y_proba": float(proba[j]),
+                })
         elif task == "regression":
             model = ModelClass(best_params, imputer_strategy=imputer_strategy, target_transform=target_transform)
             model.fit(X_tr, y_tr)
             pred = model.predict(X_te)
             m = regression_metrics(y_te, pred, cohorts_te)
             head_metric = ("mae", m.get("mae"))
+            for j in range(len(te_idx)):
+                prediction_rows.append({
+                    "seed": seed, "cell_name": cells_te[j], "cohort": cohorts_te[j],
+                    "y_true": float(y_te[j]), "y_pred": float(pred[j]),
+                })
         else:  # survival
             model = ModelClass(best_params, imputer_strategy=imputer_strategy)
             model.fit(X_tr, time_tr, event_tr)
             risk_te = _normalize_risk(model, X_te)
+            raw_te = np.asarray(model.predict(X_te), dtype=float)
             assert survival_metrics is not None
             m = survival_metrics(event_te, time_te, risk_te, cohorts=cohorts_te)
             head_metric = ("c_index", m.get("c_index"))
+            for j in range(len(te_idx)):
+                prediction_rows.append({
+                    "seed": seed, "cell_name": cells_te[j], "cohort": cohorts_te[j],
+                    "time": int(time_te[j]), "event": bool(event_te[j]),
+                    "raw_predict": float(raw_te[j]), "risk_score": float(risk_te[j]),
+                })
 
         rows.append({
             "seed": seed,
@@ -274,6 +314,11 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
 
     hp_df = pd.DataFrame(hp_rows)
     hp_df.to_csv(out_dir / "best_params_per_seed.csv", index=False)
+
+    # predictions.csv — per-cell test predictions across all seeds, the
+    # raw material for ensemble blending and per-cell error analysis.
+    if prediction_rows:
+        pd.DataFrame(prediction_rows).to_csv(out_dir / "predictions.csv", index=False)
 
     summary = _build_summary(per_seed_df, view, config, task)
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, default=str))

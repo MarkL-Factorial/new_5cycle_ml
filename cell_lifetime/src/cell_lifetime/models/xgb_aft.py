@@ -125,8 +125,17 @@ class XGBAFTModel(CycleLifeModel):
         return np.asarray(self.booster.predict(dmat), dtype=float)
 
     def predict_cycle_life(self, X: pd.DataFrame) -> np.ndarray:
-        """Convenience: predict cycle life on the untransformed scale."""
-        return np.exp(self.predict(X))
+        """Convenience: predict cycle life on the untransformed scale.
+
+        Clips the log-time predictions to [-50, 50] before exp so an
+        extreme HP (very large n_estimators × deep trees) doesn't make
+        the booster emit predictions outside float64's exp range
+        (~709), which would silently produce inf and break downstream
+        metrics. Clipping at 50 caps cycle life at e^50 ≈ 5.2e21 —
+        comfortably above any plausible cell lifetime.
+        """
+        log_time = np.clip(self.predict(X), -50.0, 50.0)
+        return np.exp(log_time)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         raise NotImplementedError("survival has no probabilistic output; use predict()")

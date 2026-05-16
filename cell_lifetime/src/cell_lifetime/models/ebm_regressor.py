@@ -27,8 +27,10 @@ class EBMRegressorModel(CycleLifeModel):
     fixed_params: dict[str, Any] = {
         # n_jobs=10 — workspace cap (max 10 cores across all automation).
         "n_jobs": 10,
-        # EBM handles NaN, but we still impute for parity (cheap and harmless)
-        "interactions": 0,  # disable pair interactions by default for speed; tunable
+        # NOTE: `interactions` was previously fixed at 0 here, but the
+        # tuner also returns `interactions` from suggest_params, so the
+        # fixed value silently won. Removed so Optuna can actually tune
+        # the pair-interaction count (small expected gain for EBM).
     }
 
     def __init__(
@@ -51,10 +53,15 @@ class EBMRegressorModel(CycleLifeModel):
 
     @classmethod
     def suggest_params(cls, trial: optuna.Trial) -> dict[str, Any]:
+        # `interactions` upper bound capped at 3 (was 10): higher values
+        # explode wall-clock per fit on the 187-cell faded subset, and
+        # multi-seed Exp A showed Optuna's TPE biased toward the high
+        # end with diminishing accuracy gain. EBM is the interpretability
+        # play here; we don't need expensive interactions.
         return {
             "max_bins": trial.suggest_int("max_bins", 64, 512, step=64),
             "max_interaction_bins": trial.suggest_int("max_interaction_bins", 8, 64, step=8),
-            "interactions": trial.suggest_int("interactions", 0, 10),
+            "interactions": trial.suggest_int("interactions", 0, 3),
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
             "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 20),
             "max_leaves": trial.suggest_int("max_leaves", 2, 8),

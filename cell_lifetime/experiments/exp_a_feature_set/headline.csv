@@ -1,0 +1,11 @@
+model,task,feature_subset,N,n_seeds,headline_metric,mean,std,direction,run_dir
+xgb_classifier,classification,fs_all,300,5,f1,0.8655806079556891,0.03735262328609609,higher_is_better,out/runs/classification/xgb_classifier__classification__N300__A2.2_b1__fs_all__20260516T193607Z
+xgb_classifier,classification,fs_cv,300,5,f1,0.8377149276393933,0.029385207923216274,higher_is_better,out/runs/classification/xgb_classifier__classification__N300__A2.2_b1__fs_cv__20260516T191025Z
+ebm_regressor,regression,fs_all,300,5,mae,136.16482094126079,12.320591842225022,lower_is_better,out/runs/regression/ebm_regressor__regression__N300__A2.2_b1__fs_all__20260516T212337Z
+ebm_regressor,regression,fs_cv,300,5,mae,142.1003671455188,14.552772687716326,lower_is_better,out/runs/regression/ebm_regressor__regression__N300__A2.2_b1__fs_cv__20260516T201935Z
+xgb_regressor,regression,fs_all,300,5,mae,136.5031061446718,9.564688638581975,lower_is_better,out/runs/regression/xgb_regressor__regression__N300__A2.2_b1__fs_all__20260516T193907Z
+xgb_regressor,regression,fs_cv,300,5,mae,137.69322323340674,16.86693963942918,lower_is_better,out/runs/regression/xgb_regressor__regression__N300__A2.2_b1__fs_cv__20260516T191201Z
+rsf,survival,fs_all,300,5,c_index,0.786510998100021,0.020392958137600364,higher_is_better,out/runs/survival/rsf__survival__N300__A2.2_b1__fs_all__20260516T231241Z
+rsf,survival,fs_cv,300,5,c_index,0.801276500298774,0.021331097502515613,higher_is_better,out/runs/survival/rsf__survival__N300__A2.2_b1__fs_cv__20260516T193229Z
+xgb_aft,survival,fs_all,300,5,c_index,0.7778278949932973,0.024275340222336378,higher_is_better,out/runs/survival/xgb_aft__survival__N300__A2.2_b1__fs_all__20260516T231052Z
+xgb_aft,survival,fs_cv,300,5,c_index,0.7701870335106001,0.026441028021870424,higher_is_better,out/runs/survival/xgb_aft__survival__N300__A2.2_b1__fs_cv__20260516T193109Z

@@ -9,7 +9,8 @@ Last updated: 2026-05-15T22:00:00Z
 |-------|---------|---------------|-------------|--------|--------|-------------|-----------|------------|-------------|
 | phase1_regression_spine | in-session | 2026-05-15T21:14Z | 2026-05-15T21:52Z | OK | cfb5ce4 | 38 | 28 | 28 | run_logs/20260515T215136Z_smoke_phase1.log |
 | phase2_xgb_aft | in-session | 2026-05-16T18:30Z | 2026-05-16T18:52Z | OK | fa9ee48 | 5 | 40 | 40 | run_logs/20260516T185120Z_phase2_xgb_aft_smoke.log |
-| phase3_rsf_and_summary | in-session | 2026-05-16T18:54Z | 2026-05-16T18:56Z | OK | (pending) | 3 | 47 | 47 | run_logs/20260516T185357Z_phase3_rsf_smoke.log |
+| phase3_rsf_and_summary | in-session | 2026-05-16T18:54Z | 2026-05-16T18:56Z | OK | 4b4b394 | 3 | 47 | 47 | run_logs/20260516T185357Z_phase3_rsf_smoke.log |
+| phase_experiments_a_b | in-session | 2026-05-16T19:10Z | 2026-05-16T23:35Z | OK | (pending) | 5 src + 14 exp | 50 | 50 | experiments/REPORT.html |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 
@@ -41,6 +42,24 @@ RSF outperforms AFT at every horizon in this 1-seed smoke. The cross-model compa
 | ebm_regressor (boxcox) | regression | MAE=138.3 cyc | 187 faded cells only |
 | xgb_aft | survival | C-index=0.778, AUC@300=0.842 | 415 cells incl. censored |
 | **rsf** | survival | **C-index=0.807, AUC@300=0.880** | 415 cells incl. censored |
+
+## Experiment A + B headline (5 seeds × 30 trials × 5 inner CV)
+
+Multi-seed estimates. See [`experiments/REPORT.md`](experiments/REPORT.md)
+or `REPORT.html` for full breakdown.
+
+| Task | Best model | Best feature set | Multi-seed headline |
+|------|-----------|------------------|---------------------|
+| classification | xgb_classifier | **fs_all** (40) | F1 = **0.866 ± 0.037** (+3.3% vs fs_cv) |
+| regression | ebm_regressor | **fs_all** (40) | MAE = **136.2 ± 12.3** cyc (+4.2% vs fs_cv) |
+| survival | **rsf** | **fs_cv** (12) | C-index = **0.801 ± 0.021**, AUC@300 = **0.879 ± 0.048** |
+
+Findings:
+- More features help classification + regression; RSF overfits at 40.
+- Phase 1-3 single-seed numbers were optimistic vs 5-seed means.
+- Z-score blend of RSF + AFT does NOT improve (≈ 1 std below RSF alone).
+- Regression has a Q4 (long-life) ceiling driven by selection bias —
+  survival is the right framework for those cells.
 
 ## Cloud routines (scheduled but will no-op due to in-session completion)
 
