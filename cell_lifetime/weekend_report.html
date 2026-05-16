@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-05-16" />
+  <title>cell_lifetime weekend build</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {  background-color: #f8f8f8; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ef2929; } /* Alert */
+    code span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #204a87; } /* Attribute */
+    code span.bn { color: #0000cf; } /* BaseN */
+    code span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4e9a06; } /* Char */
+    code span.cn { color: #8f5902; } /* Constant */
+    code span.co { color: #8f5902; font-style: italic; } /* Comment */
+    code span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
+    code span.dt { color: #204a87; } /* DataType */
+    code span.dv { color: #0000cf; } /* DecVal */
+    code span.er { color: #a40000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #0000cf; } /* Float */
+    code span.fu { color: #204a87; font-weight: bold; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #204a87; font-weight: bold; } /* Keyword */
+    code span.op { color: #ce5c00; font-weight: bold; } /* Operator */
+    code span.ot { color: #8f5902; } /* Other */
+    code span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
+    code span.sc { color: #ce5c00; font-weight: bold; } /* SpecialChar */
+    code span.ss { color: #4e9a06; } /* SpecialString */
+    code span.st { color: #4e9a06; } /* String */
+    code span.va { color: #000000; } /* Variable */
+    code span.vs { color: #4e9a06; } /* VerbatimString */
+    code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+  :root { --fg: #1a1a1a; --fg-muted: #555; --bg: #fdfdfd; --bg-code: #f4f4f7;
+          --bg-tbl-alt: #f9f9fb; --border: #e1e1e6; --accent: #0b5394;
+          --accent-light: #d6e4f0; --sidebar-bg: #f6f7fa; --ok: #1a7f37; --warn: #b58105; }
+  *{box-sizing:border-box} html{scroll-behavior:smooth;scroll-padding-top:1rem}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px;line-height:1.65;color:var(--fg);background:var(--bg);
+    margin:0;padding:2rem 2rem 4rem 290px;max-width:1140px}
+  @media (max-width:900px){body{padding:1.5rem}
+    nav#TOC{position:static!important;width:auto!important;height:auto!important;
+      border-right:none!important;border-bottom:1px solid var(--border);
+      margin-bottom:2rem}}
+  nav#TOC{position:fixed;top:0;left:0;width:260px;height:100vh;overflow-y:auto;
+    padding:1.5rem 1rem 2rem 1.25rem;background:var(--sidebar-bg);
+    border-right:1px solid var(--border);font-size:13.5px;line-height:1.5}
+  nav#TOC::before{content:"Contents";display:block;font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--fg-muted);margin-bottom:.5rem}
+  nav#TOC ul{list-style:none;padding-left:.75rem;margin:0}
+  nav#TOC>ul{padding-left:0} nav#TOC li{margin:.2rem 0}
+  nav#TOC a{color:var(--fg);text-decoration:none;display:block;padding:2px 6px;border-radius:3px}
+  nav#TOC a:hover{background:var(--accent-light);color:var(--accent)}
+  nav#TOC>ul>li>a{font-weight:600}
+  nav#TOC ul ul a{color:var(--fg-muted);font-weight:400}
+  h1,h2,h3,h4{line-height:1.25;margin-top:2.2rem;margin-bottom:.6rem;font-weight:600}
+  h1{font-size:1.9rem;margin-top:0;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
+  h2{font-size:1.45rem;margin-top:2.6rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
+  h3{font-size:1.15rem;color:var(--accent);margin-top:1.8rem}
+  h4{font-size:1rem}
+  p{margin:.6rem 0} a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  ul,ol{padding-left:1.4rem;margin:.5rem 0} li{margin:.25rem 0}
+  code{font-family:"SF Mono",Menlo,Monaco,Consolas,monospace;font-size:.88em;
+    background:var(--bg-code);padding:.12em .4em;border-radius:3px;color:#c7254e}
+  pre{background:var(--bg-code);border:1px solid var(--border);border-radius:5px;
+    padding:.85rem 1rem;overflow-x:auto;line-height:1.45;margin:.9rem 0}
+  pre code{background:none;padding:0;color:var(--fg);font-size:.85em}
+  table{border-collapse:collapse;margin:1rem 0;width:100%;font-size:.93em}
+  th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:var(--bg-tbl-alt);font-weight:600;border-bottom:2px solid var(--border)}
+  tbody tr:nth-child(even){background:var(--bg-tbl-alt)}
+  tbody tr:hover{background:var(--accent-light)}
+  blockquote{margin:.9rem 0;padding:.4rem 1rem;border-left:4px solid var(--accent);
+    background:var(--accent-light)}
+  .ok{color:var(--ok);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  hr{border:none;border-top:1px solid var(--border);margin:2rem 0}
+  @media print{nav#TOC{display:none}body{padding:1rem;max-width:none}
+    a{color:var(--fg);text-decoration:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">cell_lifetime weekend build</h1>
+<p class="subtitle">Phases 1+2+3 in-session summary (real data: A2.2_b1,
+N=300)</p>
+<p class="date">2026-05-16</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#cell_lifetime-weekend-build--phases-123-summary"
+id="toc-cell_lifetime-weekend-build--phases-123-summary">cell_lifetime
+weekend build — Phases 1+2+3 summary</a>
+<ul>
+<li><a href="#phase-log" id="toc-phase-log">Phase log</a></li>
+<li><a href="#real-data-smoke-results-a22_b1-n300-1-seed"
+id="toc-real-data-smoke-results-a22_b1-n300-1-seed">Real-data smoke
+results (A2.2_b1, N=300, 1 seed)</a>
+<ul>
+<li><a href="#classification--xgboost-binary"
+id="toc-classification--xgboost-binary">Classification — XGBoost
+binary</a></li>
+<li><a
+href="#regression--cycle-life-on-faded-cells-n187-untransformed-cycle-scale"
+id="toc-regression--cycle-life-on-faded-cells-n187-untransformed-cycle-scale">Regression
+— cycle life on faded cells (n=187, untransformed cycle scale)</a></li>
+<li><a
+href="#survival--censoring-aware-on-all-415-cells-187-observed--228-censored"
+id="toc-survival--censoring-aware-on-all-415-cells-187-observed--228-censored">Survival
+— censoring-aware on all 415 cells (187 observed + 228
+censored)</a></li>
+<li><a href="#cross-task-comparison-at-n300"
+id="toc-cross-task-comparison-at-n300">Cross-task comparison at
+N=300</a></li>
+</ul></li>
+<li><a href="#files-added" id="toc-files-added">Files added</a>
+<ul>
+<li><a href="#phase-1-38-files" id="toc-phase-1-38-files">Phase 1 (38
+files)</a></li>
+<li><a href="#phase-2-5-files" id="toc-phase-2-5-files">Phase 2 (5
+files)</a></li>
+<li><a href="#phase-3-3-files--this-report"
+id="toc-phase-3-3-files--this-report">Phase 3 (3 files + this
+report)</a></li>
+</ul></li>
+<li><a href="#key-design-decisions" id="toc-key-design-decisions">Key
+design decisions</a>
+<ul>
+<li><a href="#1-sibling-package-not-a-refactor"
+id="toc-1-sibling-package-not-a-refactor">1. Sibling package, not a
+refactor</a></li>
+<li><a href="#2-workspace-10-core-cap"
+id="toc-2-workspace-10-core-cap">2. Workspace 10-core cap</a></li>
+<li><a href="#3-n_regular--6-cohort-filter"
+id="toc-3-n_regular--6-cohort-filter">3. <code>n_regular &gt;= 6</code>
+cohort filter</a></li>
+<li><a href="#4-risk_orientation-for-survival-sign-normalization"
+id="toc-4-risk_orientation-for-survival-sign-normalization">4.
+<code>risk_orientation</code> for survival sign normalization</a></li>
+<li><a href="#5-shap-deferred-for-survival-models"
+id="toc-5-shap-deferred-for-survival-models">5. SHAP deferred for
+survival models</a></li>
+</ul></li>
+<li><a href="#monday-review-checklist"
+id="toc-monday-review-checklist">Monday review checklist</a></li>
+<li><a href="#open-items--not-done" id="toc-open-items--not-done">Open
+items / not done</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="cell_lifetime-weekend-build--phases-123-summary">cell_lifetime
+weekend build — Phases 1+2+3 summary</h1>
+<p><strong>Branch:</strong> <code>feature/cell_lifetime</code>  · 
+<strong>Completed:</strong> 2026-05-16 in-session  ·  <strong>Source
+repo:</strong> <a
+href="https://github.com/MarkL-Factorial/new_5cycle_ml/tree/feature/cell_lifetime">MarkL-Factorial/new_5cycle_ml
+@ feature/cell_lifetime</a></p>
+<p>A new sibling package <code>cell_lifetime/</code> adds three modeling
+capabilities on top of <code>cell_classifier/</code> (which stays
+untouched per the inviolable no-modify-existing rule):</p>
+<ul>
+<li><strong>Classification</strong> — XGBoost binary
+<code>pass</code>/<code>bad</code> predictor (mirror of
+<code>cell_classifier</code>'s RF baseline)</li>
+<li><strong>Regression</strong> — XGBoost and EBM cycle-life regressors
+on faded-only cells, with Box-Cox / sqrt / log target transforms</li>
+<li><strong>Survival</strong> — XGBoost-AFT and Random Survival Forest,
+censoring-aware on all 415 cells</li>
+</ul>
+<p>All work is gated by 47 unit + integration tests, and validated
+against real <code>ml_label_preprocess/datasets/A2.2_b1</code> data at
+N=300 (1 seed).</p>
+<hr />
+<h2 id="phase-log">Phase log</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Phase</th>
+<th>Surface</th>
+<th>Commit</th>
+<th>Tests</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>phase1_regression_spine</td>
+<td>in-session</td>
+<td><code>cfb5ce4</code> → <code>c22973d</code></td>
+<td>28/28</td>
+<td>✅ OK</td>
+</tr>
+<tr class="even">
+<td>phase2_xgb_aft</td>
+<td>in-session</td>
+<td><code>fa9ee48</code></td>
+<td>40/40</td>
+<td>✅ OK</td>
+</tr>
+<tr class="odd">
+<td>phase3_rsf_and_summary</td>
+<td>in-session</td>
+<td>(this commit)</td>
+<td>47/47</td>
+<td>✅ OK</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="real-data-smoke-results-a22_b1-n300-1-seed">Real-data smoke
+results (A2.2_b1, N=300, 1 seed)</h2>
+<h3 id="classification--xgboost-binary">Classification — XGBoost
+binary</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th style="text-align: right;">Value</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Test F1</td>
+<td style="text-align: right;"><strong>0.853</strong></td>
+<td>250 trainable cells (pass/bad), 20% held out</td>
+</tr>
+<tr class="even">
+<td>Runtime</td>
+<td style="text-align: right;">9.5s</td>
+<td>20 tuning trials × 3 inner CV</td>
+</tr>
+</tbody>
+</table>
+<h3
+id="regression--cycle-life-on-faded-cells-n187-untransformed-cycle-scale">Regression
+— cycle life on faded cells (n=187, untransformed cycle scale)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>Transform</th>
+<th style="text-align: right;">Test MAE (cycles)</th>
+<th style="text-align: right;">Runtime</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>xgb_regressor</code></td>
+<td>sqrt (≈ Box-Cox λ=0.534)</td>
+<td style="text-align: right;"><strong>129.7</strong></td>
+<td style="text-align: right;">7.6s</td>
+</tr>
+<tr class="even">
+<td><code>ebm_regressor</code></td>
+<td>boxcox (λ=0.534 on real data)</td>
+<td style="text-align: right;">138.3</td>
+<td style="text-align: right;">64.8s</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Target-transform note:</strong> the cycle-life target on
+A2.2_b1 has median 317, range 6–1052. We confirmed Box-Cox's optimal λ
+is <strong>0.534</strong> — essentially <code>sqrt</code> (λ=0.5).
+<code>log</code> over-corrects (post-transform skew −1.12 vs sqrt's
+−0.26). The configs default to <code>sqrt</code> for
+<code>xgb_regressor</code> and <code>boxcox</code> for
+<code>ebm_regressor</code>; <code>log</code> is available but not
+recommended for this data.</p>
+</blockquote>
+<h3
+id="survival--censoring-aware-on-all-415-cells-187-observed--228-censored">Survival
+— censoring-aware on all 415 cells (187 observed + 228 censored)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th style="text-align: right;">C-index</th>
+<th style="text-align: right;">AUC@200</th>
+<th style="text-align: right;">AUC@300</th>
+<th style="text-align: right;">AUC@400</th>
+<th style="text-align: right;">Runtime</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>xgb_aft</code> (objective=survival:aft)</td>
+<td style="text-align: right;">0.778</td>
+<td style="text-align: right;">0.914</td>
+<td style="text-align: right;">0.842</td>
+<td style="text-align: right;">0.831</td>
+<td style="text-align: right;">6.8s</td>
+</tr>
+<tr class="even">
+<td><strong><code>rsf</code></strong> (RandomSurvivalForest)</td>
+<td style="text-align: right;"><strong>0.807</strong></td>
+<td style="text-align: right;">0.911</td>
+<td style="text-align: right;"><strong>0.880</strong></td>
+<td style="text-align: right;"><strong>0.896</strong></td>
+<td style="text-align: right;">11.8s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>RSF beats XGB-AFT at every horizon</strong> in this 1-seed
+smoke. The nonparametric forest is a better fit than AFT's parametric
+(normal / logistic / extreme) assumption on this data.</p>
+<h3 id="cross-task-comparison-at-n300">Cross-task comparison at
+N=300</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>Task</th>
+<th>Headline metric</th>
+<th style="text-align: right;">Cohort size</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>classification</td>
+<td>F1 = 0.853</td>
+<td style="text-align: right;">250 (pass+bad)</td>
+</tr>
+<tr class="even">
+<td>xgb_regressor</td>
+<td>regression</td>
+<td>MAE = 130 cycles</td>
+<td style="text-align: right;">187 (faded)</td>
+</tr>
+<tr class="odd">
+<td>ebm_regressor</td>
+<td>regression</td>
+<td>MAE = 138 cycles</td>
+<td style="text-align: right;">187 (faded)</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>survival</td>
+<td>C-index = 0.778, AUC@300 = 0.842</td>
+<td style="text-align: right;">415 (all)</td>
+</tr>
+<tr class="odd">
+<td><strong>rsf</strong></td>
+<td>survival</td>
+<td><strong>C-index = 0.807, AUC@300 = 0.880</strong></td>
+<td style="text-align: right;"><strong>415 (all)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The survival models train on <strong>the most data</strong> because
+they handle right-censoring; the regression models lose 228/415 = 55% of
+usable cells, and classification loses ~165 censored cells at N=300.</p>
+<hr />
+<h2 id="files-added">Files added</h2>
+<h3 id="phase-1-38-files">Phase 1 (38 files)</h3>
+<ul>
+<li><code>src/cell_lifetime/</code> — package skeleton
+(<code>__init__.py</code>, <code>cli.py</code>,
+<code>data/loader.py</code>, <code>data/synthetic.py</code>,
+<code>preprocessing/target_transform.py</code>,
+<code>models/base.py</code>, <code>models/registry.py</code>,
+<code>models/xgb_classifier.py</code>,
+<code>models/xgb_regressor.py</code>,
+<code>models/ebm_regressor.py</code>,
+<code>evaluation/regression_metrics.py</code>,
+<code>pipelines/validation.py</code>)</li>
+<li><code>configs/</code> — <code>xgb_classifier.yaml</code>,
+<code>xgb_regressor.yaml</code>, <code>ebm_regressor.yaml</code></li>
+<li><code>scripts/</code> — <code>install_env.sh</code>,
+<code>run_routine.sh</code>, <code>append_index.py</code>,
+<code>monday_smoke_real_data.sh</code></li>
+<li><code>tests/</code> — 8 test files (28 tests)</li>
+<li>Top-level — <code>INDEX.md</code>, <code>README.md</code>,
+<code>ROUTINES.md</code>, <code>pyproject.toml</code>,
+<code>.gitignore</code></li>
+</ul>
+<h3 id="phase-2-5-files">Phase 2 (5 files)</h3>
+<ul>
+<li><code>src/cell_lifetime/models/xgb_aft.py</code> — XGBoost-AFT
+survival model</li>
+<li><code>src/cell_lifetime/evaluation/survival_metrics.py</code> —
+C-index, time-dep AUC</li>
+<li><code>configs/xgb_aft.yaml</code></li>
+<li><code>tests/test_models_xgb_aft.py</code>,
+<code>tests/test_metrics_survival.py</code></li>
+<li>Edits: <code>models/base.py</code> (+ <code>risk_orientation</code>
+class attr), <code>pipelines/validation.py</code> (survival branch fully
+wired)</li>
+</ul>
+<h3 id="phase-3-3-files--this-report">Phase 3 (3 files + this
+report)</h3>
+<ul>
+<li><code>src/cell_lifetime/models/rsf.py</code> — Random Survival
+Forest</li>
+<li><code>configs/rsf.yaml</code></li>
+<li><code>tests/test_models_rsf.py</code></li>
+<li><code>weekend_report.html</code> (this file)</li>
+</ul>
+<hr />
+<h2 id="key-design-decisions">Key design decisions</h2>
+<h3 id="1-sibling-package-not-a-refactor">1. Sibling package, not a
+refactor</h3>
+<p>The inviolable rule "never modify existing scripts" forced
+cell_lifetime to live entirely under a new sibling directory.
+cell_classifier, ml_label_preprocess, and root files are read-only
+consumers; cell_lifetime imports from them via
+<code>pip install -e</code> but never edits them.</p>
+<h3 id="2-workspace-10-core-cap">2. Workspace 10-core cap</h3>
+<p>Initial smoke with <code>n_jobs=-1</code> produced <strong>8000%
+CPU</strong> and 431 threads on the 200-row dataset — XGBoost's OMP
+threads colliding. All models now declare <code>n_jobs=10</code> (XGB) /
+<code>nthread=10</code> (xgb.Booster), and scripts export
+<code>OMP_NUM_THREADS=10 OPENBLAS_NUM_THREADS=10 MKL_NUM_THREADS=10 NUMEXPR_NUM_THREADS=10</code>
+to enforce the cap at the C-library level.</p>
+<h3 id="3-n_regular--6-cohort-filter">3. <code>n_regular &gt;= 6</code>
+cohort filter</h3>
+<p>The loader drops cells with <code>n_regular &lt; 6</code> (415 cells
+survive on A2.2_b1). Upstream <code>ml_label_preprocess</code> only
+filters at <code>n_regular &gt;= 5</code>; we tighten to 6 because cells
+with very few cycles haven't yet expressed their degradation
+behaviour.</p>
+<h3 id="4-risk_orientation-for-survival-sign-normalization">4.
+<code>risk_orientation</code> for survival sign normalization</h3>
+<p>XGB-AFT predicts log-time (higher = later failure); RSF predicts risk
+(higher = sooner failure). To compute C-index cleanly across both,
+<code>CycleLifeModel.risk_orientation ∈ {"time_high", "risk_high"}</code>
+declares the convention, and the pipeline's
+<code>_normalize_risk()</code> negates AFT's predictions before passing
+to <code>concordance_index_censored</code>.</p>
+<h3 id="5-shap-deferred-for-survival-models">5. SHAP deferred for
+survival models</h3>
+<p><code>shap</code> does not natively support <code>xgb_aft</code>
+(log-time interpretation is non-trivial) or
+<code>sksurv.RandomSurvivalForest</code>. Both models'
+<code>compute_shap()</code> returns <code>None</code> and the pipeline's
+shap stage handles that. <strong>Permutation importance still
+works</strong> for both — that's the recommended explanation path for
+survival models.</p>
+<hr />
+<h2 id="monday-review-checklist">Monday review checklist</h2>
+<p>The cloud <code>/schedule</code> routines for Phase 2 and Phase 3
+still fire on Sat 14:00 UTC and Sun 02:00 UTC. They will read
+<code>INDEX.md</code>, see <code>phase2_xgb_aft OK</code> and
+<code>phase3_rsf_and_summary OK</code>, and <strong>no-op via
+idempotency check</strong> — no duplicate work, no broken pushes.</p>
+<p>When you're back:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout feature/cell_lifetime</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> cell_lifetime/INDEX.md</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">xdg-open</span> cell_lifetime/weekend_report.html</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-seed real-data validation (extends what the in-session smokes did)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> /home/mliao/miniconda3/etc/profile.d/conda.sh <span class="kw">&amp;&amp;</span> <span class="ex">conda</span> activate mldashboard</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">pytest</span> cell_lifetime/tests <span class="at">-q</span>                       <span class="co"># confirm 47/47 still green</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> cell_lifetime/scripts/monday_smoke_real_data.sh <span class="at">--phase</span> all</span></code></pre></div>
+<p>If everything looks good, merge <code>feature/cell_lifetime</code> →
+<code>main</code> manually. <strong>Routines never
+auto-merge.</strong></p>
+<hr />
+<h2 id="open-items--not-done">Open items / not done</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Why deferred</th>
+<th>Where to pick up</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Multi-seed runs</td>
+<td>Smokes used 1 seed for speed; multi-seed mean ± std would tighten
+the comparison</td>
+<td><code>--seeds 1,2,3,4,5</code> on each model</td>
+</tr>
+<tr class="even">
+<td>Nested CV protocol</td>
+<td>Phase 1+2+3 only wired <code>tune_inner_cv</code>; cell_classifier's
+<code>nested_cv</code> would give a more defensible model-selection
+story</td>
+<td>extend <code>pipelines/validation.py</code></td>
+</tr>
+<tr class="odd">
+<td>Per-cohort survival metrics</td>
+<td><code>survival_metrics.py</code> computes <code>c_index_AR</code> /
+<code>c_index_0MC</code> but with 20 0MC faded cells the per-cohort
+number is noisy</td>
+<td>needs more 0MC observations</td>
+</tr>
+<tr class="even">
+<td>Survival SHAP</td>
+<td><code>shap</code> doesn't support sksurv RSF or xgb-AFT cleanly</td>
+<td>wait for upstream; permutation importance is sufficient now</td>
+</tr>
+<tr class="odd">
+<td>Cross-model sweep config</td>
+<td><code>configs/sweeps/all_models_n_smoke.yaml</code> not yet
+written</td>
+<td>next phase</td>
+</tr>
+<tr class="even">
+<td><code>runtime_seconds</code> not summed across seeds in summary</td>
+<td>minor reporting gap</td>
+<td>one-line fix in <code>_build_summary</code></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

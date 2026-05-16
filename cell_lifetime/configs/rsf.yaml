@@ -1,0 +1,11 @@
+# Random Survival Forest template.
+
+model: rsf
+
+tune:
+  n_trials: 25
+  inner_cv: 3
+  optimize: c_index
+
+preprocessing:
+  imputer_strategy: median

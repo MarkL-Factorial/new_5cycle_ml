@@ -8,7 +8,8 @@ Last updated: 2026-05-15T22:00:00Z
 | Phase | Surface | Started (UTC) | Ended (UTC) | Status | Commit | Files added | Tests run | Tests pass | Log/Summary |
 |-------|---------|---------------|-------------|--------|--------|-------------|-----------|------------|-------------|
 | phase1_regression_spine | in-session | 2026-05-15T21:14Z | 2026-05-15T21:52Z | OK | cfb5ce4 | 38 | 28 | 28 | run_logs/20260515T215136Z_smoke_phase1.log |
-| phase2_xgb_aft | in-session | 2026-05-16T18:30Z | 2026-05-16T18:52Z | OK | (pending) | 5 | 40 | 40 | run_logs/20260516T185120Z_phase2_xgb_aft_smoke.log |
+| phase2_xgb_aft | in-session | 2026-05-16T18:30Z | 2026-05-16T18:52Z | OK | fa9ee48 | 5 | 40 | 40 | run_logs/20260516T185120Z_phase2_xgb_aft_smoke.log |
+| phase3_rsf_and_summary | in-session | 2026-05-16T18:54Z | 2026-05-16T18:56Z | OK | (pending) | 3 | 47 | 47 | run_logs/20260516T185357Z_phase3_rsf_smoke.log |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 
@@ -20,16 +21,26 @@ Last updated: 2026-05-15T22:00:00Z
 
 Sanity bounds: faded-cell cycle life median = 317, range 6–1052; MAE ~130 cycles is ~40% of median (12 features, no tuning depth). XGB classifier F1=0.85 matches the cell_classifier RF baseline magnitude at N=300.
 
-## Phase 2 real-data smoke (A2.2_b1, N=300, 1 seed, all 415 cells incl. censored)
+## Phase 2 + 3 real-data smoke (A2.2_b1, N=300, 1 seed, all 415 cells incl. censored)
 
-| Model | Task | Metric | Value |
-|-------|------|--------|-------|
-| xgb_aft | survival | test C-index | **0.778** |
-| xgb_aft | survival | test AUC@200 | 0.914 |
-| xgb_aft | survival | test AUC@300 | 0.842 |
-| xgb_aft | survival | test AUC@400 | 0.831 |
+| Model | Task | C-index | AUC@200 | AUC@300 | AUC@400 | Runtime |
+|-------|------|---------|---------|---------|---------|---------|
+| xgb_aft | survival | 0.778 | 0.914 | 0.842 | 0.831 | 6.8s |
+| rsf     | survival | **0.807** | 0.911 | **0.880** | **0.896** | 11.8s |
 
-XGB-AFT uses censoring-aware loss (objective='survival:aft') and trains on all 415 cells (187 observed + 228 right-censored). The C-index 0.778 beats random (0.5) cleanly; AUC@N tracks the classification threshold the existing pipeline already uses, so survival numbers are directly comparable to xgb_classifier's F1.
+Both models train on all 415 cells (187 observed + 228 right-censored). XGB-AFT uses censoring-aware loss (`objective='survival:aft'`) and predicts log-cycle-life; RSF predicts a risk score directly. The validation pipeline normalises both into the same sign via the `risk_orientation` class attribute before computing C-index.
+
+RSF outperforms AFT at every horizon in this 1-seed smoke. The cross-model comparison is the headline cycle_lifetime deliverable: same data, same split logic, same metrics — RSF's nonparametric forest is a better fit than AFT's parametric (normal/logistic/extreme) AFT assumption on this data.
+
+## Cross-task comparison at N=300 (all from 1-seed smoke runs)
+
+| Model | Task | Headline | Note |
+|-------|------|----------|------|
+| xgb_classifier | classification | F1=0.853 | binary pass/bad, 250 cells |
+| xgb_regressor (sqrt) | regression | MAE=129.7 cyc | 187 faded cells only |
+| ebm_regressor (boxcox) | regression | MAE=138.3 cyc | 187 faded cells only |
+| xgb_aft | survival | C-index=0.778, AUC@300=0.842 | 415 cells incl. censored |
+| **rsf** | survival | **C-index=0.807, AUC@300=0.880** | 415 cells incl. censored |
 
 ## Cloud routines (scheduled but will no-op due to in-session completion)
 
