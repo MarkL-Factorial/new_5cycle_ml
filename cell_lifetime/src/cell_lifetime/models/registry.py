@@ -51,6 +51,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from cell_lifetime.models.ebm_classifier import EBMClassifierModel
+    _REGISTRY["ebm_classifier"] = EBMClassifierModel
+except ImportError:
+    pass
+
 # Phase 2: xgb_aft — registered when the file lands
 try:
     from cell_lifetime.models.xgb_aft import XGBAFTModel  # noqa: F401

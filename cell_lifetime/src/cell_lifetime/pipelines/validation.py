@@ -114,18 +114,26 @@ def _normalize_risk(model, X) -> np.ndarray:
     return -raw if orientation == "time_high" else raw
 
 
-def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize, imputer_strategy):
-    """Inner-CV objective for survival models: average C-index across folds.
+def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize,
+                        imputer_strategy, *, N=None):
+    """Inner-CV objective for survival models.
 
-    Tracks the count of folds that produced NaN C-index via
-    `trial.set_user_attr('n_skipped_folds', ...)` so anomalies in the
-    Optuna history are diagnosable.
+    Supported `optimize` targets:
+      - "c_index" (default): rank-based concordance across all event pairs
+      - "auc_at_N": time-dependent AUC at the run's classification horizon
+      - "f1_at_N":  F1 of (predicted-to-fail-by-N) binary classification
+                    using the per-fold median-risk threshold
+
+    `N` (the run's classification horizon) is required for the auc_at_N
+    and f1_at_N targets; ignored for c_index.
+
+    Tracks the count of folds that produced NaN target via
+    `trial.set_user_attr('n_skipped_folds', ...)`.
     """
     from sklearn.model_selection import StratifiedKFold
     params = ModelClass.suggest_params(trial)
     scores: list[float] = []
     n_skipped = 0
-    # Stratify by event so each fold has a similar censored/observed mix
     skf = StratifiedKFold(n_splits=inner_cv, shuffle=True, random_state=trial.number)
     for tr_idx, va_idx in skf.split(X, event):
         m = ModelClass(params, imputer_strategy=imputer_strategy)
@@ -134,11 +142,26 @@ def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize, i
         if survival_metrics is None:
             raise RuntimeError("scikit-survival not installed; cannot run survival task")
         out = survival_metrics(event[va_idx], time[va_idx], risk_va)
-        c = out.get("c_index", float("nan"))
-        if np.isnan(c):
+        # Pull the right metric based on `optimize`
+        if optimize == "c_index":
+            score = out.get("c_index", float("nan"))
+        elif optimize == "auc_at_N":
+            if N is None:
+                raise ValueError("optimize='auc_at_N' requires N to be passed")
+            score = out.get(f"auc_at_{N}", float("nan"))
+        elif optimize == "f1_at_N":
+            if N is None:
+                raise ValueError("optimize='f1_at_N' requires N to be passed")
+            score = out.get(f"f1_at_{N}", float("nan"))
+        else:
+            raise ValueError(
+                f"unknown survival optimize target {optimize!r}; "
+                f"supported: c_index, auc_at_N, f1_at_N"
+            )
+        if np.isnan(score):
             n_skipped += 1
             continue
-        scores.append(c)
+        scores.append(score)
     trial.set_user_attr("n_skipped_folds", n_skipped)
     if not scores:
         return float("nan")
@@ -146,7 +169,7 @@ def _objective_survival(trial, ModelClass, X, time, event, inner_cv, optimize, i
 
 
 def _tune(task, ModelClass, X, y_or_time, *, n_trials, inner_cv, seed, optimize,
-          imputer_strategy, target_transform, event=None):
+          imputer_strategy, target_transform, event=None, N=None):
     sampler = optuna.samplers.TPESampler(seed=seed)
     study = optuna.create_study(direction="maximize", sampler=sampler)
     if task == "classification":
@@ -156,7 +179,7 @@ def _tune(task, ModelClass, X, y_or_time, *, n_trials, inner_cv, seed, optimize,
     elif task == "survival":
         if event is None:
             raise ValueError("event array required for survival tuning")
-        obj = lambda t: _objective_survival(t, ModelClass, X, y_or_time, event, inner_cv, optimize, imputer_strategy)
+        obj = lambda t: _objective_survival(t, ModelClass, X, y_or_time, event, inner_cv, optimize, imputer_strategy, N=N)
     else:
         raise ValueError(f"unknown task {task!r}")
     study.optimize(obj, n_trials=n_trials, show_progress_bar=False)
@@ -245,7 +268,7 @@ def run_validation(config: dict[str, Any], *, out_dir: Path) -> dict[str, Any]:
                 task, ModelClass, X_tr, time_tr,
                 n_trials=n_trials, inner_cv=inner_cv, seed=seed,
                 optimize=optimize, imputer_strategy=imputer_strategy,
-                target_transform=None, event=event_tr,
+                target_transform=None, event=event_tr, N=view.N,
             )
         else:
             best_params, study = _tune(
@@ -368,7 +391,8 @@ def _build_summary(per_seed_df, view, config, task) -> dict[str, Any]:
     elif task == "regression":
         metric_cols = ("mae", "rmse", "r2", "medae")
     else:  # survival
-        metric_cols = ("c_index", "auc_at_200", "auc_at_300", "auc_at_400")
+        metric_cols = ("c_index", "auc_at_200", "auc_at_300", "auc_at_400",
+                       "f1_at_200", "f1_at_300", "f1_at_400")
     for metric in metric_cols:
         col = f"test_{metric}"
         if col in per_seed_df.columns:

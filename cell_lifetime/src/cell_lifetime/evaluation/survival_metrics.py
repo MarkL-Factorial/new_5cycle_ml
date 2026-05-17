@@ -18,7 +18,7 @@ isn't load-bearing for cross-model comparison at our N-horizons.
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score
 from sksurv.metrics import concordance_index_censored
 
 
@@ -73,6 +73,38 @@ def _auc_at_horizon(
         return float("nan")
 
 
+def _f1_at_horizon(
+    event: np.ndarray,
+    time: np.ndarray,
+    risk_scores: np.ndarray,
+    horizon: int,
+) -> float:
+    """F1 of the binary "predicted-to-fail-by-N" classification.
+
+    Same usability mask as `_auc_at_horizon`. Risk-positive scores are
+    thresholded at their per-call median so that ~half are predicted to
+    fail-by-N — this is a tuning-target-friendly default that doesn't
+    require Platt scaling of risk into [0,1]. Production deployments
+    would want a proper threshold calibration step.
+    """
+    event = np.asarray(event, dtype=bool)
+    time = np.asarray(time, dtype=float)
+    risk = np.asarray(risk_scores, dtype=float)
+    usable = (event & (time <= horizon)) | (time > horizon)
+    if usable.sum() < 2:
+        return float("nan")
+    y_true = (event[usable] & (time[usable] <= horizon)).astype(int)
+    if len(np.unique(y_true)) < 2:
+        return float("nan")
+    r = risk[usable]
+    threshold = float(np.median(r))
+    y_pred = (r >= threshold).astype(int)
+    try:
+        return float(f1_score(y_true, y_pred, zero_division=0))
+    except ValueError:
+        return float("nan")
+
+
 def survival_metrics(
     event: np.ndarray,
     time: np.ndarray,
@@ -81,7 +113,7 @@ def survival_metrics(
     horizons: tuple[int, ...] = (200, 300, 400),
     cohorts: np.ndarray | None = None,
 ) -> dict[str, float]:
-    """Compute C-index + per-cohort C-index + time-dep AUC at each horizon.
+    """Compute C-index + per-cohort C-index + time-dep AUC + F1 at each horizon.
 
     `risk_scores` MUST be risk-positive (higher = sooner failure). The
     validation pipeline normalises this from each model's predict() based
@@ -94,6 +126,7 @@ def survival_metrics(
     }
     for N in horizons:
         out[f"auc_at_{N}"] = _auc_at_horizon(event, time, risk_scores, N)
+        out[f"f1_at_{N}"] = _f1_at_horizon(event, time, risk_scores, N)
 
     if cohorts is not None:
         cohorts = np.asarray(cohorts)

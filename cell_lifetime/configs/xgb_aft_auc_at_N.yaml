@@ -1,0 +1,11 @@
+# XGBoost-AFT — tunes on time-dep AUC at the run's horizon N.
+
+model: xgb_aft
+
+tune:
+  n_trials: 30
+  inner_cv: 5
+  optimize: auc_at_N
+
+preprocessing:
+  imputer_strategy: median

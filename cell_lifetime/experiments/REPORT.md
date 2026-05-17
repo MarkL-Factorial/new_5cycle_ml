@@ -3,9 +3,10 @@
 **Branch:** `feature/cell_lifetime` &nbsp;·&nbsp;
 **Compute:** 5 seeds × 30 Optuna trials × 5 inner CV per run, N=300 unless noted, A2.2_b1, 10-core cap
 
-This report consolidates **six experiments** (A through F) aimed at
+This report consolidates **seven experiments** (A through G) aimed at
 improving the Phase 1+2+3 in-session baselines. A and B were the
-initial pass; C/D/E/F drill into specific findings.
+initial pass; C/D/E/F drill into specific findings; G extends Exp F's
+tune-target question to the full 4-model × 3-horizon grid.
 
 ---
 
@@ -17,7 +18,8 @@ initial pass; C/D/E/F drill into specific findings.
 | **Use a z-score (Exp B) or weighted (Exp C) blend of RSF + XGB-AFT?** | **NO. Optimal blend weight `w_rsf = 1.0` at every horizon — RSF alone is Pareto-optimal.** |
 | **Does adding more survival models (Cox PH, Weibull AFT) help via a 4-way blend (Exp E)?** | **NO. Best 4-way blend is still `w_rsf = 1.0`. RSF dominates everything tried.** |
 | **Where does the survival signal live across feature tiers (Exp D)?** | **Tier A retention/CE (3 cols) alone gives RSF C-index 0.774; Tier C CV-phase (34 cols) alone collapses to 0.577 (near random). Tier A is the anchor; CV features are useful additions but not standalone.** |
-| **Does tuning ON F1 produce better F1 than tuning on ROC-AUC (Exp F)?** | **NO. AUC-tuned fs_all keeps the highest F1 (0.866); F1-tuned fs_all drops to 0.825. Smooth proxies beat discrete targets for HP search.** |
+| **Does tuning ON F1 produce better F1 than tuning on ROC-AUC (Exp F)?** | **At fs_all: YES, AUC-tuning wins by 4.1 pts.** |
+| **Does that pattern generalize across model families and horizons (Exp G)?** | **NO. Across 24 (model, fs, N) cells with fs_a_only and fs_cv, F1-tuning and AUC-tuning are statistically indistinguishable (0 of 24 cells have \|Δ\| > pooled std). The Exp F finding was fs_all-specific — likely an Optuna-in-high-dim artifact.** |
 | **Headline cycle-life model?** | **RSF + fs_cv** — C-index 0.801 ± 0.021, AUC@300 0.879 ± 0.048. |
 
 The five models now have honest multi-seed estimates instead of the
@@ -312,6 +314,99 @@ shaped by discrete metrics are jagged and search-unfriendly.
 
 Keep `optimize: roc_auc` in `configs/xgb_classifier.yaml`. The F1
 numbers reported throughout this report are the right ones.
+
+---
+
+## Experiment G — AUC vs F1 tuning across model families and horizons
+
+**Question**: Exp F found a strong "AUC-tuning beats F1-tuning" result
+on xgb_classifier × fs_all at N=300. Does that pattern generalize to
+other model families and horizons?
+
+### Setup
+
+- **Models**: xgb_classifier, ebm_classifier (new), rsf, xgb_aft
+- **Tune targets**: AUC (`roc_auc` for classification, `auc_at_N` for
+  survival) vs F1 (`f1` for classification, `f1_at_N` for survival;
+  the latter is a median-threshold binary-classification F1 at the
+  run's horizon — newly added to `survival_metrics`)
+- **Feature subsets**: fs_a_only (3 cols), fs_cv (12 cols)
+- **Horizons**: N ∈ {200, 300, 400}
+- **Grid**: 4 models × 2 tune targets × 2 subsets × 3 N = **48 runs**
+
+### Per-cell Δ (F1-tuned − AUC-tuned), held-out F1 / F1@N
+
+| model | fs | N | ΔF1 | ΔAUC |
+|---|---|---|---:|---:|
+| xgb_classifier | fs_a_only | 200 | +0.021 | −0.005 |
+| xgb_classifier | fs_a_only | 300 | −0.014 | −0.006 |
+| xgb_classifier | fs_a_only | 400 | −0.009 | −0.032 |
+| xgb_classifier | fs_cv | 200 | +0.006 | −0.005 |
+| xgb_classifier | fs_cv | 300 | +0.004 | +0.013 |
+| xgb_classifier | fs_cv | 400 | −0.019 | −0.017 |
+| ebm_classifier | fs_a_only | 200 | +0.006 | −0.005 |
+| ebm_classifier | fs_a_only | 300 | −0.006 | −0.002 |
+| ebm_classifier | fs_a_only | 400 | −0.021 | +0.001 |
+| ebm_classifier | fs_cv | 200 | −0.007 | −0.001 |
+| ebm_classifier | fs_cv | 300 | +0.004 | +0.001 |
+| ebm_classifier | fs_cv | 400 | −0.004 | −0.007 |
+| rsf | fs_a_only | 200 | +0.000 | −0.005 |
+| rsf | fs_a_only | 300 | +0.000 | −0.005 |
+| rsf | fs_a_only | 400 | **+0.057** | +0.014 |
+| rsf | fs_cv | 200 | −0.019 | −0.014 |
+| rsf | fs_cv | 300 | −0.009 | −0.001 |
+| rsf | fs_cv | 400 | −0.007 | +0.002 |
+| xgb_aft | fs_a_only | 200 | **+0.041** | +0.008 |
+| xgb_aft | fs_a_only | 300 | −0.006 | −0.009 |
+| xgb_aft | fs_a_only | 400 | −0.018 | −0.012 |
+| xgb_aft | fs_cv | 200 | −0.010 | −0.027 |
+| xgb_aft | fs_cv | 300 | +0.009 | +0.007 |
+| xgb_aft | fs_cv | 400 | +0.015 | +0.001 |
+
+### Headline summary
+
+| Statistic | Value |
+|---|---|
+| Mean ΔF1 across 24 cells | **+0.0005** (essentially zero) |
+| Median ΔF1 | −0.0052 |
+| Cells favoring F1-tuning | 9 / 24 |
+| Cells favoring AUC-tuning | 15 / 24 |
+| **Cells with \|Δ\| > pooled std** | **0 / 24** |
+
+### Interpretation
+
+**Across 24 cells, F1-tuning and AUC-tuning produce statistically
+indistinguishable held-out F1.** Every single difference is inside the
+pooled standard deviation across seeds. Exp F's strong −4.1 pt result
+on `xgb_classifier × fs_all × N=300` was a **single-cell outlier**;
+when extended to other subsets and horizons, the effect vanishes.
+
+This is the cleanest possible null result. The "smooth proxies beat
+discrete objectives" heuristic isn't actually load-bearing on this
+dataset and Optuna budget (30 trials × 5 inner CV × 5 seeds). It only
+matters at extreme feature-set sizes where Optuna can wander; with
+3-12 features and small samples, the tune-target choice is noise.
+
+### Two cells worth a second look
+
+| Cell | ΔF1 | Note |
+|---|---:|---|
+| rsf × fs_a_only × N=400 | +0.057 | Largest positive Δ; F1-tuning helps RSF at long horizon with sparse features |
+| xgb_aft × fs_a_only × N=200 | +0.041 | F1-tuning helps AFT at short horizon with sparse features |
+
+Both involve fs_a_only (3 cols). With such a small feature space,
+both objectives may converge near the same loss landscape minimum,
+and randomness in the per-seed test split dominates the comparison.
+
+### Recommendation (updated)
+
+- **For published comparisons**, keep `optimize: roc_auc` for all
+  classifiers. It's the conventional choice; Exp G shows there's no
+  cost to using it.
+- **The Exp F finding (fs_all penalty) remains**: when feature counts
+  scale to 40, F1-tuning starts to lose ground. The take-away is more
+  about Optuna's behavior in higher-dimensional HP × feature
+  landscapes than about a fundamental F1-vs-AUC tradeoff.
 
 ---
 

@@ -1,0 +1,22 @@
+{
+  "slug": "ebm_classifier__classification__N300__A2.2_b1__fs_a_only",
+  "task": "classification",
+  "mode": "validation",
+  "model": "ebm_classifier",
+  "N": 300,
+  "db_version": "A2.2",
+  "baseline_cycle": 1,
+  "feature_subset": "fs_a_only",
+  "n_rows": 250,
+  "n_seeds": 5,
+  "test_f1_mean": 0.8484636278753926,
+  "test_f1_std": 0.027029967352301315,
+  "test_accuracy_mean": 0.792,
+  "test_accuracy_std": 0.03346640106136301,
+  "test_precision_mean": 0.7939404884760921,
+  "test_precision_std": 0.02340809300374217,
+  "test_recall_mean": 0.9125,
+  "test_recall_std": 0.051348989766109326,
+  "test_roc_auc_mean": 0.8625,
+  "test_roc_auc_std": 0.03297240212204037
+}

@@ -1,0 +1,11 @@
+# RSF — tunes on time-dep AUC at the run's classification horizon N.
+
+model: rsf
+
+tune:
+  n_trials: 30
+  inner_cv: 5
+  optimize: auc_at_N
+
+preprocessing:
+  imputer_strategy: median

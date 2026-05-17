@@ -1,0 +1,6 @@
+seed,n_estimators,max_depth,min_samples_split,min_samples_leaf,max_features
+1,175,9,14,17,
+2,150,14,11,5,log2
+3,225,13,14,18,sqrt
+4,275,20,9,13,
+5,225,5,14,16,sqrt

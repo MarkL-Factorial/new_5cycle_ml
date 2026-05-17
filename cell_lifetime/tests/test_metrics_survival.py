@@ -65,3 +65,27 @@ def test_auc_at_horizon_perfect_separation():
     risk = np.array([10.0, 8.0, 1.0, 0.5])  # high risk for the failers
     out = survival_metrics(event, time, risk)
     assert out["auc_at_300"] == 1.0
+
+
+def test_f1_at_horizon_keys_present():
+    """f1_at_{200,300,400} should always be present in survival_metrics output."""
+    rng = np.random.default_rng(0)
+    n = 200
+    event = rng.random(n) > 0.5
+    time = rng.uniform(10, 800, size=n)
+    risk = rng.normal(size=n)
+    out = survival_metrics(event, time, risk)
+    for N in (200, 300, 400):
+        assert f"f1_at_{N}" in out
+        val = out[f"f1_at_{N}"]
+        assert np.isnan(val) or (0.0 <= val <= 1.0)
+
+
+def test_f1_at_horizon_perfect_separation():
+    """Manual case: perfect risk-ranking that median-thresholds the failers."""
+    event = np.array([True, True, False, False])
+    time = np.array([100.0, 200.0, 500.0, 600.0])
+    risk = np.array([10.0, 8.0, 1.0, 0.5])
+    out = survival_metrics(event, time, risk)
+    # 2 positives, 2 negatives, perfect median split → F1=1.0
+    assert out["f1_at_300"] == 1.0

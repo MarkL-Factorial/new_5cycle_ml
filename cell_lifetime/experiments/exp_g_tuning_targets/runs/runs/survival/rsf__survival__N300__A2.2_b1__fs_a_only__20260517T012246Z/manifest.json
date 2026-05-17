@@ -1,0 +1,21 @@
+{
+  "task": "survival",
+  "model": "rsf",
+  "N": 300,
+  "db_version": "A2.2",
+  "baseline_cycle": 1,
+  "feature_subset": "fs_a_only",
+  "n_rows": 415,
+  "n_features": 3,
+  "n_seeds": 5,
+  "tuning_protocol": "tune_inner_cv",
+  "n_trials": 30,
+  "inner_cv_folds": 5,
+  "test_frac": 0.2,
+  "optimize_metric": "auc_at_N",
+  "target_transform": null,
+  "imputer_strategy": "median",
+  "runtime_seconds": 238.3,
+  "preprocess_source": "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/ml_label_preprocess/datasets/A2.2_b1",
+  "generated_at": "2026-05-17T01:26:44Z"
+}

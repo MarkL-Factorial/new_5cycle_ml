@@ -167,7 +167,7 @@
   <style>
   :root { --fg: #1a1a1a; --fg-muted: #555; --bg: #fdfdfd; --bg-code: #f4f4f7;
           --bg-tbl-alt: #f9f9fb; --border: #e1e1e6; --accent: #0b5394;
-          --accent-light: #d6e4f0; --sidebar-bg: #f6f7fa; --ok: #1a7f37; --warn: #b58105; }
+          --accent-light: #d6e4f0; --sidebar-bg: #f6f7fa; }
   *{box-sizing:border-box} html{scroll-behavior:smooth;scroll-padding-top:1rem}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     font-size:16px;line-height:1.65;color:var(--fg);background:var(--bg);
@@ -191,8 +191,7 @@
   h1{font-size:1.9rem;margin-top:0;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
   h2{font-size:1.45rem;margin-top:2.6rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
   h3{font-size:1.15rem;color:var(--accent);margin-top:1.8rem}
-  h4{font-size:1rem}
-  p{margin:.6rem 0} a{color:var(--accent);text-decoration:none}
+  h4{font-size:1rem} p{margin:.6rem 0} a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
   ul,ol{padding-left:1.4rem;margin:.5rem 0} li{margin:.25rem 0}
   code{font-family:"SF Mono",Menlo,Monaco,Consolas,monospace;font-size:.88em;
@@ -205,17 +204,13 @@
   th{background:var(--bg-tbl-alt);font-weight:600;border-bottom:2px solid var(--border)}
   tbody tr:nth-child(even){background:var(--bg-tbl-alt)}
   tbody tr:hover{background:var(--accent-light)}
-  blockquote{margin:.9rem 0;padding:.4rem 1rem;border-left:4px solid var(--accent);
-    background:var(--accent-light)}
   hr{border:none;border-top:1px solid var(--border);margin:2rem 0}
-  @media print{nav#TOC{display:none}body{padding:1rem;max-width:none}
-    a{color:var(--fg);text-decoration:none}}
   </style>
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">cell_lifetime experiments — REPORT</h1>
-<p class="subtitle">Six experiments (A–F): feature sets, blends, tier
+<p class="subtitle">Seven experiments (A–G): feature sets, blends, tier
 ablation, parametric survival, tuning targets</p>
 <p class="date">2026-05-17</p>
 </header>
@@ -303,6 +298,25 @@ finding</a></li>
 <li><a href="#recommendation"
 id="toc-recommendation">Recommendation</a></li>
 </ul></li>
+<li><a
+href="#experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons"
+id="toc-experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons">Experiment
+G — AUC vs F1 tuning across model families and horizons</a>
+<ul>
+<li><a href="#setup" id="toc-setup">Setup</a></li>
+<li><a href="#per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n"
+id="toc-per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
+(F1-tuned − AUC-tuned), held-out F1 / F1@N</a></li>
+<li><a href="#headline-summary" id="toc-headline-summary">Headline
+summary</a></li>
+<li><a href="#interpretation-1"
+id="toc-interpretation-1">Interpretation</a></li>
+<li><a href="#two-cells-worth-a-second-look"
+id="toc-two-cells-worth-a-second-look">Two cells worth a second
+look</a></li>
+<li><a href="#recommendation-updated"
+id="toc-recommendation-updated">Recommendation (updated)</a></li>
+</ul></li>
 <li><a href="#methodology" id="toc-methodology">Methodology</a>
 <ul>
 <li><a href="#protocol" id="toc-protocol">Protocol</a></li>
@@ -330,9 +344,11 @@ REPORT</h1>
 <p><strong>Branch:</strong> <code>feature/cell_lifetime</code>  · 
 <strong>Compute:</strong> 5 seeds × 30 Optuna trials × 5 inner CV per
 run, N=300 unless noted, A2.2_b1, 10-core cap</p>
-<p>This report consolidates <strong>six experiments</strong> (A through
-F) aimed at improving the Phase 1+2+3 in-session baselines. A and B were
-the initial pass; C/D/E/F drill into specific findings.</p>
+<p>This report consolidates <strong>seven experiments</strong> (A
+through G) aimed at improving the Phase 1+2+3 in-session baselines. A
+and B were the initial pass; C/D/E/F drill into specific findings; G
+extends Exp F's tune-target question to the full 4-model × 3-horizon
+grid.</p>
 <hr />
 <h2 id="tldr">TL;DR</h2>
 <table>
@@ -372,11 +388,17 @@ standalone.</strong></td>
 <tr class="odd">
 <td><strong>Does tuning ON F1 produce better F1 than tuning on ROC-AUC
 (Exp F)?</strong></td>
-<td><strong>NO. AUC-tuned fs_all keeps the highest F1 (0.866); F1-tuned
-fs_all drops to 0.825. Smooth proxies beat discrete targets for HP
-search.</strong></td>
+<td><strong>At fs_all: YES, AUC-tuning wins by 4.1 pts.</strong></td>
 </tr>
 <tr class="even">
+<td><strong>Does that pattern generalize across model families and
+horizons (Exp G)?</strong></td>
+<td><strong>NO. Across 24 (model, fs, N) cells with fs_a_only and fs_cv,
+F1-tuning and AUC-tuning are statistically indistinguishable (0 of 24
+cells have |Δ| &gt; pooled std). The Exp F finding was fs_all-specific —
+likely an Optuna-in-high-dim artifact.</strong></td>
+</tr>
+<tr class="odd">
 <td><strong>Headline cycle-life model?</strong></td>
 <td><strong>RSF + fs_cv</strong> — C-index 0.801 ± 0.021, AUC@300 0.879
 ± 0.048.</td>
@@ -951,6 +973,291 @@ search-unfriendly.</p>
 <p>Keep <code>optimize: roc_auc</code> in
 <code>configs/xgb_classifier.yaml</code>. The F1 numbers reported
 throughout this report are the right ones.</p>
+<hr />
+<h2
+id="experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons">Experiment
+G — AUC vs F1 tuning across model families and horizons</h2>
+<p><strong>Question</strong>: Exp F found a strong "AUC-tuning beats
+F1-tuning" result on xgb_classifier × fs_all at N=300. Does that pattern
+generalize to other model families and horizons?</p>
+<h3 id="setup">Setup</h3>
+<ul>
+<li><strong>Models</strong>: xgb_classifier, ebm_classifier (new), rsf,
+xgb_aft</li>
+<li><strong>Tune targets</strong>: AUC (<code>roc_auc</code> for
+classification, <code>auc_at_N</code> for survival) vs F1
+(<code>f1</code> for classification, <code>f1_at_N</code> for survival;
+the latter is a median-threshold binary-classification F1 at the run's
+horizon — newly added to <code>survival_metrics</code>)</li>
+<li><strong>Feature subsets</strong>: fs_a_only (3 cols), fs_cv (12
+cols)</li>
+<li><strong>Horizons</strong>: N ∈ {200, 300, 400}</li>
+<li><strong>Grid</strong>: 4 models × 2 tune targets × 2 subsets × 3 N =
+<strong>48 runs</strong></li>
+</ul>
+<h3 id="per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
+(F1-tuned − AUC-tuned), held-out F1 / F1@N</h3>
+<table>
+<thead>
+<tr class="header">
+<th>model</th>
+<th>fs</th>
+<th>N</th>
+<th style="text-align: right;">ΔF1</th>
+<th style="text-align: right;">ΔAUC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>fs_a_only</td>
+<td>200</td>
+<td style="text-align: right;">+0.021</td>
+<td style="text-align: right;">−0.005</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier</td>
+<td>fs_a_only</td>
+<td>300</td>
+<td style="text-align: right;">−0.014</td>
+<td style="text-align: right;">−0.006</td>
+</tr>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>fs_a_only</td>
+<td>400</td>
+<td style="text-align: right;">−0.009</td>
+<td style="text-align: right;">−0.032</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier</td>
+<td>fs_cv</td>
+<td>200</td>
+<td style="text-align: right;">+0.006</td>
+<td style="text-align: right;">−0.005</td>
+</tr>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>fs_cv</td>
+<td>300</td>
+<td style="text-align: right;">+0.004</td>
+<td style="text-align: right;">+0.013</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier</td>
+<td>fs_cv</td>
+<td>400</td>
+<td style="text-align: right;">−0.019</td>
+<td style="text-align: right;">−0.017</td>
+</tr>
+<tr class="odd">
+<td>ebm_classifier</td>
+<td>fs_a_only</td>
+<td>200</td>
+<td style="text-align: right;">+0.006</td>
+<td style="text-align: right;">−0.005</td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td>fs_a_only</td>
+<td>300</td>
+<td style="text-align: right;">−0.006</td>
+<td style="text-align: right;">−0.002</td>
+</tr>
+<tr class="odd">
+<td>ebm_classifier</td>
+<td>fs_a_only</td>
+<td>400</td>
+<td style="text-align: right;">−0.021</td>
+<td style="text-align: right;">+0.001</td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td>fs_cv</td>
+<td>200</td>
+<td style="text-align: right;">−0.007</td>
+<td style="text-align: right;">−0.001</td>
+</tr>
+<tr class="odd">
+<td>ebm_classifier</td>
+<td>fs_cv</td>
+<td>300</td>
+<td style="text-align: right;">+0.004</td>
+<td style="text-align: right;">+0.001</td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td>fs_cv</td>
+<td>400</td>
+<td style="text-align: right;">−0.004</td>
+<td style="text-align: right;">−0.007</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>fs_a_only</td>
+<td>200</td>
+<td style="text-align: right;">+0.000</td>
+<td style="text-align: right;">−0.005</td>
+</tr>
+<tr class="even">
+<td>rsf</td>
+<td>fs_a_only</td>
+<td>300</td>
+<td style="text-align: right;">+0.000</td>
+<td style="text-align: right;">−0.005</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>fs_a_only</td>
+<td>400</td>
+<td style="text-align: right;"><strong>+0.057</strong></td>
+<td style="text-align: right;">+0.014</td>
+</tr>
+<tr class="even">
+<td>rsf</td>
+<td>fs_cv</td>
+<td>200</td>
+<td style="text-align: right;">−0.019</td>
+<td style="text-align: right;">−0.014</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>fs_cv</td>
+<td>300</td>
+<td style="text-align: right;">−0.009</td>
+<td style="text-align: right;">−0.001</td>
+</tr>
+<tr class="even">
+<td>rsf</td>
+<td>fs_cv</td>
+<td>400</td>
+<td style="text-align: right;">−0.007</td>
+<td style="text-align: right;">+0.002</td>
+</tr>
+<tr class="odd">
+<td>xgb_aft</td>
+<td>fs_a_only</td>
+<td>200</td>
+<td style="text-align: right;"><strong>+0.041</strong></td>
+<td style="text-align: right;">+0.008</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>fs_a_only</td>
+<td>300</td>
+<td style="text-align: right;">−0.006</td>
+<td style="text-align: right;">−0.009</td>
+</tr>
+<tr class="odd">
+<td>xgb_aft</td>
+<td>fs_a_only</td>
+<td>400</td>
+<td style="text-align: right;">−0.018</td>
+<td style="text-align: right;">−0.012</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>fs_cv</td>
+<td>200</td>
+<td style="text-align: right;">−0.010</td>
+<td style="text-align: right;">−0.027</td>
+</tr>
+<tr class="odd">
+<td>xgb_aft</td>
+<td>fs_cv</td>
+<td>300</td>
+<td style="text-align: right;">+0.009</td>
+<td style="text-align: right;">+0.007</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>fs_cv</td>
+<td>400</td>
+<td style="text-align: right;">+0.015</td>
+<td style="text-align: right;">+0.001</td>
+</tr>
+</tbody>
+</table>
+<h3 id="headline-summary">Headline summary</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Statistic</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Mean ΔF1 across 24 cells</td>
+<td><strong>+0.0005</strong> (essentially zero)</td>
+</tr>
+<tr class="even">
+<td>Median ΔF1</td>
+<td>−0.0052</td>
+</tr>
+<tr class="odd">
+<td>Cells favoring F1-tuning</td>
+<td>9 / 24</td>
+</tr>
+<tr class="even">
+<td>Cells favoring AUC-tuning</td>
+<td>15 / 24</td>
+</tr>
+<tr class="odd">
+<td><strong>Cells with |Δ| &gt; pooled std</strong></td>
+<td><strong>0 / 24</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="interpretation-1">Interpretation</h3>
+<p><strong>Across 24 cells, F1-tuning and AUC-tuning produce
+statistically indistinguishable held-out F1.</strong> Every single
+difference is inside the pooled standard deviation across seeds. Exp F's
+strong −4.1 pt result on <code>xgb_classifier × fs_all × N=300</code>
+was a <strong>single-cell outlier</strong>; when extended to other
+subsets and horizons, the effect vanishes.</p>
+<p>This is the cleanest possible null result. The "smooth proxies beat
+discrete objectives" heuristic isn't actually load-bearing on this
+dataset and Optuna budget (30 trials × 5 inner CV × 5 seeds). It only
+matters at extreme feature-set sizes where Optuna can wander; with 3-12
+features and small samples, the tune-target choice is noise.</p>
+<h3 id="two-cells-worth-a-second-look">Two cells worth a second
+look</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Cell</th>
+<th style="text-align: right;">ΔF1</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>rsf × fs_a_only × N=400</td>
+<td style="text-align: right;">+0.057</td>
+<td>Largest positive Δ; F1-tuning helps RSF at long horizon with sparse
+features</td>
+</tr>
+<tr class="even">
+<td>xgb_aft × fs_a_only × N=200</td>
+<td style="text-align: right;">+0.041</td>
+<td>F1-tuning helps AFT at short horizon with sparse features</td>
+</tr>
+</tbody>
+</table>
+<p>Both involve fs_a_only (3 cols). With such a small feature space,
+both objectives may converge near the same loss landscape minimum, and
+randomness in the per-seed test split dominates the comparison.</p>
+<h3 id="recommendation-updated">Recommendation (updated)</h3>
+<ul>
+<li><strong>For published comparisons</strong>, keep
+<code>optimize: roc_auc</code> for all classifiers. It's the
+conventional choice; Exp G shows there's no cost to using it.</li>
+<li><strong>The Exp F finding (fs_all penalty) remains</strong>: when
+feature counts scale to 40, F1-tuning starts to lose ground. The
+take-away is more about Optuna's behavior in higher-dimensional HP ×
+feature landscapes than about a fundamental F1-vs-AUC tradeoff.</li>
+</ul>
 <hr />
 <h2 id="methodology">Methodology</h2>
 <h3 id="protocol">Protocol</h3>

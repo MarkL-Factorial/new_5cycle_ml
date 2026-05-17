@@ -1,0 +1,11 @@
+# EBM classifier — F1-tuned variant (for Exp G comparison).
+
+model: ebm_classifier
+
+tune:
+  n_trials: 15
+  inner_cv: 3
+  optimize: f1
+
+preprocessing:
+  imputer_strategy: median

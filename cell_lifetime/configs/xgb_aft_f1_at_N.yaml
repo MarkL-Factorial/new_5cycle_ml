@@ -1,0 +1,11 @@
+# XGBoost-AFT — tunes on F1@N (median-thresholded binary classification at horizon N).
+
+model: xgb_aft
+
+tune:
+  n_trials: 30
+  inner_cv: 5
+  optimize: f1_at_N
+
+preprocessing:
+  imputer_strategy: median

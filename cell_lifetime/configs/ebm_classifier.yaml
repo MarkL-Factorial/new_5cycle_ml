@@ -1,0 +1,11 @@
+# EBM (Explainable Boosting Machine) classifier — AUC-tuned.
+
+model: ebm_classifier
+
+tune:
+  n_trials: 15  # Light tune; EBM is slow per fit
+  inner_cv: 3
+  optimize: roc_auc
+
+preprocessing:
+  imputer_strategy: median
