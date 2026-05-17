@@ -334,6 +334,104 @@ other model families and horizons?
 - **Horizons**: N ∈ {200, 300, 400}
 - **Grid**: 4 models × 2 tune targets × 2 subsets × 3 N = **48 runs**
 
+### Held-out F1 / F1@N — values (mean ± std, 5 seeds)
+
+For direct comparison: actual F1 (classification) and F1@N (survival,
+median-threshold) at each cell, AUC-tuned vs F1-tuned.
+
+| model | feature_subset | N | AUC-tuned | F1-tuned |
+|---|---|---|---|---|
+| ebm_classifier | fs_a_only | 200 | 0.9061 ± 0.0394 | 0.9118 ± 0.0425 |
+| ebm_classifier | fs_a_only | 300 | 0.8545 ± 0.0115 | 0.8485 ± 0.0270 |
+| ebm_classifier | fs_a_only | 400 | 0.8260 ± 0.0577 | 0.8049 ± 0.0638 |
+| ebm_classifier | fs_cv | 200 | 0.9108 ± 0.0269 | 0.9039 ± 0.0294 |
+| ebm_classifier | fs_cv | 300 | 0.8437 ± 0.0444 | 0.8477 ± 0.0446 |
+| ebm_classifier | fs_cv | 400 | 0.8125 ± 0.0661 | 0.8081 ± 0.0663 |
+| rsf | fs_a_only | 200 | 0.5886 ± 0.0665 | 0.5886 ± 0.0665 |
+| rsf | fs_a_only | 300 | 0.6835 ± 0.0721 | 0.6835 ± 0.0721 |
+| rsf | fs_a_only | 400 | 0.7255 ± 0.1066 | **0.7828 ± 0.0557** |
+| rsf | fs_cv | 200 | 0.5793 ± 0.0583 | 0.5600 ± 0.0647 |
+| rsf | fs_cv | 300 | 0.7094 ± 0.0514 | 0.7005 ± 0.0448 |
+| rsf | fs_cv | 400 | 0.7643 ± 0.0403 | 0.7571 ± 0.0279 |
+| xgb_aft | fs_a_only | 200 | 0.5381 ± 0.1057 | **0.5791 ± 0.0644** |
+| xgb_aft | fs_a_only | 300 | 0.6529 ± 0.0675 | 0.6467 ± 0.0535 |
+| xgb_aft | fs_a_only | 400 | 0.7257 ± 0.1109 | 0.7076 ± 0.0660 |
+| xgb_aft | fs_cv | 200 | 0.5607 ± 0.0425 | 0.5510 ± 0.0536 |
+| xgb_aft | fs_cv | 300 | 0.6734 ± 0.0692 | 0.6823 ± 0.0468 |
+| xgb_aft | fs_cv | 400 | 0.7319 ± 0.0617 | 0.7468 ± 0.0451 |
+| xgb_classifier | fs_a_only | 200 | 0.8970 ± 0.0427 | **0.9180 ± 0.0400** |
+| xgb_classifier | fs_a_only | 300 | 0.8572 ± 0.0241 | 0.8436 ± 0.0145 |
+| xgb_classifier | fs_a_only | 400 | 0.8104 ± 0.0686 | 0.8013 ± 0.0422 |
+| xgb_classifier | fs_cv | 200 | 0.8999 ± 0.0378 | 0.9054 ± 0.0320 |
+| xgb_classifier | fs_cv | 300 | 0.8377 ± 0.0294 | 0.8420 ± 0.0241 |
+| xgb_classifier | fs_cv | 400 | 0.7973 ± 0.0542 | 0.7781 ± 0.0367 |
+
+Bolded cells are the four largest positive Δ from the Δ table below.
+Note that *every one* of these "winners" has a std bar that swallows the
+"loser" — i.e., the F1-tuned advantage is within seed noise.
+
+### Held-out ROC-AUC / AUC@N — values (mean ± std, 5 seeds)
+
+Same shape; reports the smooth-target metric instead of F1.
+
+| model | feature_subset | N | AUC-tuned | F1-tuned |
+|---|---|---|---|---|
+| ebm_classifier | fs_a_only | 200 | 0.8892 ± 0.0598 | 0.8841 ± 0.0786 |
+| ebm_classifier | fs_a_only | 300 | 0.8642 ± 0.0226 | 0.8625 ± 0.0330 |
+| ebm_classifier | fs_a_only | 400 | 0.8847 ± 0.0530 | 0.8861 ± 0.0508 |
+| ebm_classifier | fs_cv | 200 | 0.8756 ± 0.0861 | 0.8746 ± 0.0795 |
+| ebm_classifier | fs_cv | 300 | 0.8639 ± 0.0543 | 0.8649 ± 0.0497 |
+| ebm_classifier | fs_cv | 400 | 0.8778 ± 0.0326 | 0.8708 ± 0.0522 |
+| rsf | fs_a_only | 200 | **0.9360 ± 0.0298** | 0.9309 ± 0.0306 |
+| rsf | fs_a_only | 300 | 0.8518 ± 0.0526 | 0.8467 ± 0.0541 |
+| rsf | fs_a_only | 400 | 0.8215 ± 0.0688 | 0.8352 ± 0.0404 |
+| rsf | fs_cv | 200 | **0.9279 ± 0.0335** | 0.9139 ± 0.0381 |
+| rsf | fs_cv | 300 | 0.8743 ± 0.0521 | 0.8731 ± 0.0463 |
+| rsf | fs_cv | 400 | 0.8577 ± 0.0434 | 0.8597 ± 0.0423 |
+| xgb_aft | fs_a_only | 200 | 0.9154 ± 0.0277 | 0.9238 ± 0.0248 |
+| xgb_aft | fs_a_only | 300 | 0.8312 ± 0.0784 | 0.8219 ± 0.0777 |
+| xgb_aft | fs_a_only | 400 | 0.8142 ± 0.0917 | 0.8025 ± 0.0686 |
+| xgb_aft | fs_cv | 200 | 0.9192 ± 0.0481 | 0.8926 ± 0.0252 |
+| xgb_aft | fs_cv | 300 | 0.8301 ± 0.0644 | 0.8375 ± 0.0407 |
+| xgb_aft | fs_cv | 400 | 0.8323 ± 0.0666 | 0.8331 ± 0.0136 |
+| xgb_classifier | fs_a_only | 200 | 0.8951 ± 0.0678 | 0.8903 ± 0.0755 |
+| xgb_classifier | fs_a_only | 300 | 0.8589 ± 0.0223 | 0.8526 ± 0.0328 |
+| xgb_classifier | fs_a_only | 400 | **0.8658 ± 0.0534** | 0.8342 ± 0.0883 |
+| xgb_classifier | fs_cv | 200 | 0.9051 ± 0.0628 | 0.9003 ± 0.0581 |
+| xgb_classifier | fs_cv | 300 | 0.8753 ± 0.0155 | 0.8878 ± 0.0207 |
+| xgb_classifier | fs_cv | 400 | 0.8861 ± 0.0422 | 0.8696 ± 0.0488 |
+
+Headline survival cells (RSF fs_a/fs_cv at N=200) — AUC@200 ~0.93 —
+match the Phase 3 fs_cv RSF headline; tune target has no material
+effect on this rank metric either.
+
+### Survival C-index — values (mean ± std, 5 seeds)
+
+A rank-based metric independent of the N threshold. **Does the tune
+target damage RSF / xgb_aft's natural rank ordering?**
+
+| model | feature_subset | N | AUC-tuned | F1-tuned |
+|---|---|---|---|---|
+| rsf | fs_a_only | 200 | 0.7728 ± 0.0325 | 0.7736 ± 0.0346 |
+| rsf | fs_a_only | 300 | 0.7768 ± 0.0321 | 0.7734 ± 0.0331 |
+| rsf | fs_a_only | 400 | 0.7691 ± 0.0434 | 0.7800 ± 0.0281 |
+| rsf | fs_cv | 200 | 0.8009 ± 0.0205 | 0.7942 ± 0.0186 |
+| rsf | fs_cv | 300 | 0.7966 ± 0.0215 | 0.7987 ± 0.0220 |
+| rsf | fs_cv | 400 | 0.7906 ± 0.0209 | 0.7965 ± 0.0134 |
+| xgb_aft | fs_a_only | 200 | 0.7572 ± 0.0358 | 0.7622 ± 0.0315 |
+| xgb_aft | fs_a_only | 300 | 0.7752 ± 0.0491 | 0.7539 ± 0.0538 |
+| xgb_aft | fs_a_only | 400 | 0.7681 ± 0.0493 | 0.7647 ± 0.0373 |
+| xgb_aft | fs_cv | 200 | 0.7770 ± 0.0139 | 0.7654 ± 0.0321 |
+| xgb_aft | fs_cv | 300 | 0.7679 ± 0.0427 | 0.7647 ± 0.0289 |
+| xgb_aft | fs_cv | 400 | 0.7840 ± 0.0152 | 0.7875 ± 0.0091 |
+
+**Answer: no.** RSF + fs_cv C-index lands in [0.79, 0.81] regardless of
+whether we tune on `auc_at_N` or `f1_at_N`. xgb_aft + fs_cv lands in
+[0.76, 0.79]. All differences are within 1 std. The rank ordering is
+preserved across tune targets — the survival models' core competence
+(ranking faster-failing vs slower-failing cells) is robust to which
+binary metric we optimize.
+
 ### Per-cell Δ (F1-tuned − AUC-tuned), held-out F1 / F1@N
 
 | model | fs | N | ΔF1 | ΔAUC |

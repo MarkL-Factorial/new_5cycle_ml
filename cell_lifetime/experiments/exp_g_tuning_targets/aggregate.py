@@ -123,16 +123,73 @@ def main() -> int:
     )
     print(pivot_auc.to_string(float_format="{:.4f}".format))
 
+    # ----- Pretty mean ± std tables (the user wants these alongside Δ) -----
+    df["tune_simple"] = df["tune_objective"].map(
+        lambda obj: "f1" if "f1" in str(obj) else "auc"
+    )
+    df["f1_str"] = df.apply(
+        lambda r: f"{r['test_f1_mean']:.4f} ± {r['test_f1_std']:.4f}", axis=1
+    )
+    df["auc_str"] = df.apply(
+        lambda r: f"{r['test_auc_mean']:.4f} ± {r['test_auc_std']:.4f}", axis=1
+    )
+    df["c_str"] = df.apply(
+        lambda r: (
+            f"{r['c_index_mean']:.4f} ± {r['c_index_std']:.4f}"
+            if pd.notna(r["c_index_mean"]) else "—"
+        ),
+        axis=1,
+    )
+
+    print()
+    print("=" * 100)
+    print("Held-out F1 / F1@N (mean ± std): values, AUC-tuned vs F1-tuned")
+    print("=" * 100)
+    vt_f1 = df.pivot_table(
+        index=["model", "feature_subset", "N"], columns="tune_simple",
+        values="f1_str", aggfunc="first",
+    )
+    if {"auc", "f1"}.issubset(vt_f1.columns):
+        vt_f1 = vt_f1[["auc", "f1"]].rename(
+            columns={"auc": "AUC-tuned", "f1": "F1-tuned"}
+        )
+    print(vt_f1.to_string())
+
+    print()
+    print("=" * 100)
+    print("Held-out ROC-AUC / AUC@N (mean ± std): values, AUC-tuned vs F1-tuned")
+    print("=" * 100)
+    vt_auc = df.pivot_table(
+        index=["model", "feature_subset", "N"], columns="tune_simple",
+        values="auc_str", aggfunc="first",
+    )
+    if {"auc", "f1"}.issubset(vt_auc.columns):
+        vt_auc = vt_auc[["auc", "f1"]].rename(
+            columns={"auc": "AUC-tuned", "f1": "F1-tuned"}
+        )
+    print(vt_auc.to_string())
+
+    print()
+    print("=" * 100)
+    print("Survival C-index (mean ± std): does tune target affect rank metric?")
+    print("=" * 100)
+    surv_df = df[df["task"] == "survival"]
+    vt_c = surv_df.pivot_table(
+        index=["model", "feature_subset", "N"], columns="tune_simple",
+        values="c_str", aggfunc="first",
+    )
+    if {"auc", "f1"}.issubset(vt_c.columns):
+        vt_c = vt_c[["auc", "f1"]].rename(
+            columns={"auc": "AUC-tuned", "f1": "F1-tuned"}
+        )
+    print(vt_c.to_string())
+
     # Δ tables: F1-tuned MINUS AUC-tuned
     print()
     print("=" * 100)
     print("Δ F1 (F1-tuned − AUC-tuned). Positive = F1-tuning wins.")
     print("=" * 100)
-    # Map "f1" / "roc_auc" / "auc_at_N" / "f1_at_N" → simple "f1" / "auc"
-    def _simplify(obj):
-        if "f1" in obj: return "f1"
-        return "auc"
-    df["tune_simple"] = df["tune_objective"].map(_simplify)
+    # tune_simple is already set above
     p_f1 = df.pivot_table(index=["model","feature_subset","N"], columns="tune_simple",
                            values="test_f1_mean", aggfunc="first")
     p_auc = df.pivot_table(index=["model","feature_subset","N"], columns="tune_simple",
