@@ -1,0 +1,14 @@
+# XGBoost binary classifier — F1-optimized variant.
+# Identical to xgb_classifier.yaml except tune.optimize: f1.
+# Use to test whether tuning on F1 directly shifts the F1 numbers vs
+# the default ROC-AUC objective.
+
+model: xgb_classifier
+
+tune:
+  n_trials: 50
+  inner_cv: 5
+  optimize: f1
+
+preprocessing:
+  imputer_strategy: median

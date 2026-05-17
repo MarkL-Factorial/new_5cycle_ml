@@ -1,0 +1,37 @@
+[validation/survival] N=300 db=A2.2 b=1 model=lifelines_weibull_aft subset=fs_cv n_rows=415 n_features=12
+[validation/survival] seed=1 (1/5) starting...
+[validation/survival] seed=1 done in 34.9s — test_c_index=0.787
+[validation/survival] seed=2 (2/5) starting...
+/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/lifelines/fitters/__init__.py:2097: StatisticalWarning: The diagonal of the variance_matrix_ has negative values. This could be a problem with WeibullAFTFitter's fit to the data.
+
+It's advisable to not trust the variances reported, and to be suspicious of the fitted parameters too.
+
+  warnings.warn(warning_text, exceptions.StatisticalWarning)
+/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/lifelines/fitters/__init__.py:2097: StatisticalWarning: The diagonal of the variance_matrix_ has negative values. This could be a problem with WeibullAFTFitter's fit to the data.
+
+It's advisable to not trust the variances reported, and to be suspicious of the fitted parameters too.
+
+  warnings.warn(warning_text, exceptions.StatisticalWarning)
+/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/lifelines/fitters/__init__.py:2097: StatisticalWarning: The diagonal of the variance_matrix_ has negative values. This could be a problem with WeibullAFTFitter's fit to the data.
+
+It's advisable to not trust the variances reported, and to be suspicious of the fitted parameters too.
+
+  warnings.warn(warning_text, exceptions.StatisticalWarning)
+/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/lifelines/fitters/__init__.py:2097: StatisticalWarning: The diagonal of the variance_matrix_ has negative values. This could be a problem with WeibullAFTFitter's fit to the data.
+
+It's advisable to not trust the variances reported, and to be suspicious of the fitted parameters too.
+
+  warnings.warn(warning_text, exceptions.StatisticalWarning)
+[validation/survival] seed=2 done in 35.4s — test_c_index=0.752
+[validation/survival] seed=3 (3/5) starting...
+[validation/survival] seed=3 done in 39.1s — test_c_index=0.755
+[validation/survival] seed=4 (4/5) starting...
+/home/mliao/miniconda3/envs/mldashboard/lib/python3.10/site-packages/lifelines/fitters/__init__.py:2097: StatisticalWarning: The diagonal of the variance_matrix_ has negative values. This could be a problem with WeibullAFTFitter's fit to the data.
+
+It's advisable to not trust the variances reported, and to be suspicious of the fitted parameters too.
+
+  warnings.warn(warning_text, exceptions.StatisticalWarning)
+[validation/survival] seed=4 done in 42.6s — test_c_index=0.763
+[validation/survival] seed=5 (5/5) starting...
+[validation/survival] seed=5 done in 33.8s — test_c_index=0.719
+[validation/survival] DONE — runtime=185.8s — see /mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/cell_lifetime/out/runs/survival/lifelines_weibull_aft__survival__N300__A2.2_b1__fs_cv__20260516T235340Z

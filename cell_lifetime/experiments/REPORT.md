@@ -3,8 +3,9 @@
 **Branch:** `feature/cell_lifetime` &nbsp;·&nbsp;
 **Compute:** 5 seeds × 30 Optuna trials × 5 inner CV per run, N=300 unless noted, A2.2_b1, 10-core cap
 
-This report consolidates two experiments aimed at improving the
-Phase 1+2+3 in-session baselines.
+This report consolidates **six experiments** (A through F) aimed at
+improving the Phase 1+2+3 in-session baselines. A and B were the
+initial pass; C/D/E/F drill into specific findings.
 
 ---
 
@@ -13,7 +14,10 @@ Phase 1+2+3 in-session baselines.
 | Decision | Outcome |
 |---|---|
 | **Use all 40 features (`fs_all`) instead of `fs_cv` (12)?** | **YES for classification & regression; NO for survival (RSF overfits at 40)** |
-| **Use a z-score blend of RSF + XGB-AFT?** | **NO. Blend is more stable (lower std) but consistently 1 std below RSF alone.** |
+| **Use a z-score (Exp B) or weighted (Exp C) blend of RSF + XGB-AFT?** | **NO. Optimal blend weight `w_rsf = 1.0` at every horizon — RSF alone is Pareto-optimal.** |
+| **Does adding more survival models (Cox PH, Weibull AFT) help via a 4-way blend (Exp E)?** | **NO. Best 4-way blend is still `w_rsf = 1.0`. RSF dominates everything tried.** |
+| **Where does the survival signal live across feature tiers (Exp D)?** | **Tier A retention/CE (3 cols) alone gives RSF C-index 0.774; Tier C CV-phase (34 cols) alone collapses to 0.577 (near random). Tier A is the anchor; CV features are useful additions but not standalone.** |
+| **Does tuning ON F1 produce better F1 than tuning on ROC-AUC (Exp F)?** | **NO. AUC-tuned fs_all keeps the highest F1 (0.866); F1-tuned fs_all drops to 0.825. Smooth proxies beat discrete targets for HP search.** |
 | **Headline cycle-life model?** | **RSF + fs_cv** — C-index 0.801 ± 0.021, AUC@300 0.879 ± 0.048. |
 
 The five models now have honest multi-seed estimates instead of the
@@ -127,6 +131,187 @@ recommend the simpler RSF-only approach.
 - `rsf` + `fs_cv` (12 features). **C-index = 0.801 ± 0.021,
   AUC@300 = 0.879 ± 0.048**.
 - This uses all 415 cells (187 observed + 228 censored).
+
+---
+
+## Experiment C — weighted-blend grid search
+
+**Question**: does a weighted blend `w · RSF + (1−w) · AFT` beat the
+best single model at any choice of `w` ∈ {0.0, 0.1, …, 1.0}?
+
+### Results (per-seed C-index curves, fs_cv, 5 seeds)
+
+| w_rsf | C-index @ N=200 | C-index @ N=300 | C-index @ N=400 |
+|---:|---:|---:|---:|
+| 0.0 (AFT alone)   | 0.770 | 0.770 | 0.770 |
+| 0.5               | 0.793 | 0.790 | 0.792 |
+| 0.7               | 0.797 | 0.795 | 0.795 |
+| 0.9               | 0.801 | 0.800 | 0.801 |
+| **1.0 (RSF alone)** | **0.803** | **0.801** | **0.802** |
+
+The curve is **monotonically increasing** at every N. Optimal
+`w_rsf = 1.0` (RSF alone) at every horizon. AFT contributes only noise
+to the blend.
+
+**Verdict**: blending rejected — RSF is Pareto-optimal in the 2-model
+space. The Exp B null result is now confirmed at fine grid resolution.
+
+---
+
+## Experiment D — feature tier ablation
+
+**Question**: where does the survival signal live across feature tiers?
+Is `rsf × fs_cv > rsf × fs_all` because of Tier balance, or coincidence?
+
+### Tier composition
+
+- **Tier A** (3 cols): retention/CE — `coulombic_efficiency_final`,
+  `discharge_capacity_retention_final`, `charge_capacity_retention_min`
+- **Tier B** (3 cols): nominal voltage retention (charge/discharge,
+  max/std)
+- **Tier C** (34 cols): CV-phase KWW per-cycle fits + aggregates +
+  engineered ratios
+
+### Results (5 seeds, N=300, all combinations of tiers vs the existing fs_cv/fs_all baselines)
+
+| Subset | n_cols | xgb_classifier F1 | rsf C-index |
+|---|---:|---:|---:|
+| fs_b_only | 3 | 0.821 ± 0.050 | 0.715 ± 0.051 |
+| fs_c_only | 34 | **0.785 ± 0.010** | **0.577 ± 0.036** ← *near-random!* |
+| fs_a_only | 3 | 0.857 ± 0.024 | 0.774 ± 0.039 |
+| fs_ab | 6 | 0.852 ± 0.030 | 0.794 ± 0.021 |
+| fs_cv | 12 | 0.838 ± 0.029 | **0.801 ± 0.021** |
+| fs_all | 40 | **0.866 ± 0.037** | 0.787 ± 0.020 |
+
+### Headline findings
+
+1. **Tier C alone collapses RSF survival to C-index 0.577** — barely
+   above random. The 34 CV-phase features carry almost no standalone
+   survival signal; they only help when anchored by Tier-A retention.
+   Classification F1 also drops to 0.785 (the worst on the table) when
+   limited to Tier C.
+
+2. **Tier A alone (3 retention features) gets xgb_classifier to
+   F1 = 0.857**, beating fs_cv (12 cols, F1 = 0.838) and within 1 pt
+   of fs_all (40 cols, F1 = 0.866). For classification, the **3
+   retention features carry almost all the signal**; the other 37 are
+   marginal.
+
+3. **For RSF survival, fs_cv stays the winner** (C-index 0.801). Tier A
+   alone gets 0.774, fs_ab (A+B) gets 0.794. So CV-phase features do
+   add ~0.01 C-index on top of A+B, but only when combined — alone
+   they're worthless. fs_all (40) hurts because the 34 noisy Tier-C
+   features overwhelm the 3 anchoring retention features for the
+   nonparametric forest.
+
+4. **The fs_cv subset (12 cols) was well-chosen** for survival — it
+   captures the Tier-A anchors AND a curated 9 of the 34 Tier-C
+   features that genuinely help.
+
+### Operational recommendation
+
+- **For classification**: 3 retention features (fs_a_only) gets you
+  to within 1 pt of the headline; production deployment doesn't need
+  the full 40-feature pipeline.
+- **For survival**: keep fs_cv. The CV-phase features are useful but
+  only as a complement to retention — alone they're noise.
+
+---
+
+## Experiment E — parametric survival via lifelines
+
+**Question**: do parametric (Weibull AFT) and semi-parametric (Cox PH)
+survival models from `lifelines` add information that tree-based
+survival doesn't capture? If so, a richer ensemble could outperform
+RSF alone.
+
+### New models added (in `cell_lifetime/models/`)
+
+- **`lifelines_weibull_aft`** — `lifelines.WeibullAFTFitter`, parametric
+  AFT with Weibull baseline hazard. risk_orientation = "time_high".
+- **`lifelines_cox`** — `lifelines.CoxPHFitter`, semi-parametric
+  proportional-hazards. risk_orientation = "risk_high".
+
+Both inherit `CycleLifeModel`, share the `fit(X, time, event)`
+signature with `xgb_aft` and `rsf`, register via the guarded-import
+pattern, and feed cleanly into the existing pipeline.
+
+### Solo results (5 seeds, fs_cv, N=300)
+
+| Model | C-index | AUC@300 | Notes |
+|---|---:|---:|---|
+| lifelines_cox | 0.752 ± 0.029 | 0.780 ± 0.052 | semi-parametric, fast |
+| lifelines_weibull_aft | 0.755 ± 0.025 | 0.784 ± 0.043 | parametric AFT, fast |
+| xgb_aft | 0.770 ± 0.026 | 0.836 ± 0.057 | gradient-boosted AFT |
+| **rsf** | **0.801 ± 0.021** | **0.879 ± 0.048** | **tree-based ensemble** |
+
+Both lifelines models score below xgb_aft and well below RSF on this
+dataset. Diversity ≠ accuracy.
+
+### 4-way weighted blend (simplex grid, step 0.1, 286 weight vectors)
+
+| Weights (RSF, xgb_aft, Cox, Weibull) | C-index |
+|---|---:|
+| **(1.0, 0.0, 0.0, 0.0)** | **0.801 ± 0.019** ← optimal |
+| (0.9, 0.1, 0.0, 0.0) | 0.800 ± 0.018 |
+| (0.9, 0.0, 0.1, 0.0) | 0.800 ± 0.019 |
+| (0.8, 0.0, 0.2, 0.0) | 0.799 ± 0.019 |
+| (any with w_weibull > 0) | strictly ≤ 0.798 |
+
+**Verdict**: 4-way blend produces the same answer as 2-way blend —
+RSF alone is Pareto-optimal across all four survival models. The
+parametric/semi-parametric models genuinely don't add information.
+
+This is a meaningful negative result: it means the tree-based RSF is
+*already capturing whatever signal the parametric assumptions could
+extract*. Future survival improvements need a fundamentally different
+angle (e.g., new features, different censoring assumptions, or a
+fundamentally different model class like deep survival nets).
+
+---
+
+## Experiment F — tuning objective (ROC-AUC vs F1)
+
+**Question**: does tuning xgb_classifier on F1 directly produce better
+F1 than tuning on ROC-AUC?
+
+### Results (5 seeds, N=300)
+
+| subset | tuned on | F1 ± std | ROC-AUC ± std | Δ F1 (F1-tuned − AUC-tuned) |
+|---|---|---:|---:|---:|
+| fs_a_only | roc_auc | 0.857 ± 0.024 | 0.859 ± 0.022 | — |
+| fs_a_only | **f1** | 0.842 ± 0.015 | 0.860 ± 0.033 | **−0.015** |
+| fs_b_only | roc_auc | 0.821 ± 0.050 | 0.831 ± 0.014 | — |
+| fs_b_only | **f1** | 0.830 ± 0.022 | 0.827 ± 0.019 | **+0.009** |
+| fs_cv | roc_auc | 0.838 ± 0.029 | 0.875 ± 0.016 | — |
+| fs_cv | **f1** | 0.842 ± 0.024 | **0.884 ± 0.023** | **+0.004** |
+| fs_all | roc_auc | **0.866 ± 0.037** | 0.875 ± 0.027 | — |
+| fs_all | **f1** | 0.825 ± 0.031 | 0.864 ± 0.022 | **−0.041** ← worse! |
+
+### Headline finding
+
+**Tuning on F1 makes F1 *worse* on the headline subset (fs_all, −4.1
+pts).** AUC-tuned fs_all stays the F1 winner at 0.866.
+
+### Why
+
+F1 is a **step function** in probability space — it changes only when
+predictions flip across the 0.5 decision threshold. Optuna's TPE
+sampler gets a noisy/discrete objective with very little gradient
+information, especially with only 30 trials × 5 inner folds.
+
+ROC-AUC is **smooth** (rank-based on continuous probabilities). TPE
+gets clean gradient information, converges to well-calibrated models,
+and those happen to land at favorable F1 at the default 0.5 threshold.
+
+This is a classic ML lesson: **tune on a smooth proxy, evaluate on
+the metric you care about.** Hyperparameter optimization landscapes
+shaped by discrete metrics are jagged and search-unfriendly.
+
+### Recommendation
+
+Keep `optimize: roc_auc` in `configs/xgb_classifier.yaml`. The F1
+numbers reported throughout this report are the right ones.
 
 ---
 

@@ -10,7 +10,8 @@ Last updated: 2026-05-15T22:00:00Z
 | phase1_regression_spine | in-session | 2026-05-15T21:14Z | 2026-05-15T21:52Z | OK | cfb5ce4 | 38 | 28 | 28 | run_logs/20260515T215136Z_smoke_phase1.log |
 | phase2_xgb_aft | in-session | 2026-05-16T18:30Z | 2026-05-16T18:52Z | OK | fa9ee48 | 5 | 40 | 40 | run_logs/20260516T185120Z_phase2_xgb_aft_smoke.log |
 | phase3_rsf_and_summary | in-session | 2026-05-16T18:54Z | 2026-05-16T18:56Z | OK | 4b4b394 | 3 | 47 | 47 | run_logs/20260516T185357Z_phase3_rsf_smoke.log |
-| phase_experiments_a_b | in-session | 2026-05-16T19:10Z | 2026-05-16T23:35Z | OK | (pending) | 5 src + 14 exp | 50 | 50 | experiments/REPORT.html |
+| phase_experiments_a_b | in-session | 2026-05-16T19:10Z | 2026-05-16T23:35Z | OK | b41f0ce | 5 src + 14 exp | 50 | 50 | experiments/REPORT.html |
+| phase_experiments_c_d_e_f | in-session | 2026-05-17T00:00Z | 2026-05-17T00:25Z | OK | (pending) | 4 src + 16 exp | 66 | 66 | experiments/REPORT.html |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 
@@ -60,6 +61,19 @@ Findings:
 - Z-score blend of RSF + AFT does NOT improve (≈ 1 std below RSF alone).
 - Regression has a Q4 (long-life) ceiling driven by selection bias —
   survival is the right framework for those cells.
+
+## Experiments C+D+E+F headline (5 seeds, 5 inner CV, fs_cv unless noted)
+
+| Exp | Question | Headline finding |
+|-----|----------|------------------|
+| C | Weighted RSF+AFT blend? | **No** — optimal w_rsf=1.0 at every N; AFT contributes only noise |
+| D | Where does the signal live across feature tiers? | **Tier A retention/CE alone (3 cols)** gets xgb_classifier F1=0.857; **Tier C alone collapses RSF C-index to 0.577** (near-random) |
+| E | Adds Cox + Weibull AFT via lifelines; 4-way blend? | Cox=0.752, Weibull=0.755; **4-way blend also picks w_rsf=1.0** — RSF dominates |
+| F | Tune classifier on F1 instead of ROC-AUC? | **No** — F1-tuned fs_all gets F1=0.825 (worse than AUC-tuned 0.866); F1 is a noisy/discrete objective for TPE |
+
+The headline survival model is unchanged: **rsf + fs_cv** (C-index = 0.801 ± 0.021).
+The headline classifier is unchanged: **xgb_classifier + fs_all** (F1 = 0.866 ± 0.037).
+For lighter deployment: **xgb_classifier + fs_a_only** (3 features, F1 = 0.857 ± 0.024).
 
 ## Cloud routines (scheduled but will no-op due to in-session completion)
 

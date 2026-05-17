@@ -1,0 +1,22 @@
+{
+  "slug": "xgb_classifier__classification__N300__A2.2_b1__fs_a_only",
+  "task": "classification",
+  "mode": "validation",
+  "model": "xgb_classifier",
+  "N": 300,
+  "db_version": "A2.2",
+  "baseline_cycle": 1,
+  "feature_subset": "fs_a_only",
+  "n_rows": 250,
+  "n_seeds": 5,
+  "test_f1_mean": 0.8422495901071752,
+  "test_f1_std": 0.015426077471097133,
+  "test_accuracy_mean": 0.768,
+  "test_accuracy_std": 0.022803508501982782,
+  "test_precision_mean": 0.7470695325346488,
+  "test_precision_std": 0.029224747219785022,
+  "test_recall_mean": 0.96875,
+  "test_recall_std": 0.05412658773652741,
+  "test_roc_auc_mean": 0.8602430555555556,
+  "test_roc_auc_std": 0.03303746915622406
+}

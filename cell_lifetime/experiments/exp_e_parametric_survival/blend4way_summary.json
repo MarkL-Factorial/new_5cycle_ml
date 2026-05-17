@@ -1,0 +1,21 @@
+{
+  "best_blend": {
+    "w_rsf": 1.0,
+    "w_xgb_aft": 0.0,
+    "w_lifelines_cox": 0.0,
+    "w_lifelines_weibull_aft": 0.0,
+    "c_mean": 0.801276500298774,
+    "c_std": 0.01907911362012036,
+    "is_pure_single": true
+  },
+  "best_single_c_index": 0.801276500298774,
+  "delta": 0.0,
+  "verdict": "best 'blend' is actually a single model \u2014 no ensemble gain",
+  "n_grid_points": 286,
+  "models": [
+    "rsf",
+    "xgb_aft",
+    "lifelines_cox",
+    "lifelines_weibull_aft"
+  ]
+}

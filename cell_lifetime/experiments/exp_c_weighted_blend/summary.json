@@ -1,0 +1,35 @@
+[
+  {
+    "N": 200,
+    "optimal_w_rsf": 1.0,
+    "blend_c_index_mean": 0.8026552472888081,
+    "blend_c_index_std": 0.018860367293167365,
+    "aft_alone_c_index": 0.7701870335106001,
+    "rsf_alone_c_index": 0.8026552472888081,
+    "max_single_c_index": 0.8026552472888081,
+    "delta_vs_max_single": 0.0,
+    "verdict": "RSF Pareto-optimal"
+  },
+  {
+    "N": 300,
+    "optimal_w_rsf": 1.0,
+    "blend_c_index_mean": 0.801276500298774,
+    "blend_c_index_std": 0.02133109750251563,
+    "aft_alone_c_index": 0.7701870335106001,
+    "rsf_alone_c_index": 0.801276500298774,
+    "max_single_c_index": 0.801276500298774,
+    "delta_vs_max_single": 0.0,
+    "verdict": "RSF Pareto-optimal"
+  },
+  {
+    "N": 400,
+    "optimal_w_rsf": 1.0,
+    "blend_c_index_mean": 0.8019186354763459,
+    "blend_c_index_std": 0.0193049130996562,
+    "aft_alone_c_index": 0.7701870335106001,
+    "rsf_alone_c_index": 0.8019186354763459,
+    "max_single_c_index": 0.8019186354763459,
+    "delta_vs_max_single": 0.0,
+    "verdict": "RSF Pareto-optimal"
+  }
+]

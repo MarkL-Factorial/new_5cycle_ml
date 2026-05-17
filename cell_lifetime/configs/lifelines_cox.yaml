@@ -1,0 +1,12 @@
+# Semi-parametric Cox proportional-hazards survival model (via lifelines).
+# Convex objective; small HP space; cheap per-trial.
+
+model: lifelines_cox
+
+tune:
+  n_trials: 25
+  inner_cv: 5
+  optimize: c_index
+
+preprocessing:
+  imputer_strategy: median

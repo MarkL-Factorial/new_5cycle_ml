@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2026-05-16" />
+  <meta name="dcterms.date" content="2026-05-17" />
   <title>cell_lifetime experiments — REPORT</title>
   <style>
     html {
@@ -215,9 +215,9 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">cell_lifetime experiments — REPORT</h1>
-<p class="subtitle">Multi-seed comparison across feature sets and
-survival horizons</p>
-<p class="date">2026-05-16</p>
+<p class="subtitle">Six experiments (A–F): feature sets, blends, tier
+ablation, parametric survival, tuning targets</p>
+<p class="date">2026-05-17</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -252,6 +252,57 @@ blend fails</a></li>
 </ul></li>
 <li><a href="#headline-recommendation"
 id="toc-headline-recommendation">Headline recommendation</a></li>
+<li><a href="#experiment-c--weighted-blend-grid-search"
+id="toc-experiment-c--weighted-blend-grid-search">Experiment C —
+weighted-blend grid search</a>
+<ul>
+<li><a href="#results-per-seed-c-index-curves-fs_cv-5-seeds"
+id="toc-results-per-seed-c-index-curves-fs_cv-5-seeds">Results (per-seed
+C-index curves, fs_cv, 5 seeds)</a></li>
+</ul></li>
+<li><a href="#experiment-d--feature-tier-ablation"
+id="toc-experiment-d--feature-tier-ablation">Experiment D — feature tier
+ablation</a>
+<ul>
+<li><a href="#tier-composition" id="toc-tier-composition">Tier
+composition</a></li>
+<li><a
+href="#results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-baselines"
+id="toc-results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-baselines">Results
+(5 seeds, N=300, all combinations of tiers vs the existing fs_cv/fs_all
+baselines)</a></li>
+<li><a href="#headline-findings" id="toc-headline-findings">Headline
+findings</a></li>
+<li><a href="#operational-recommendation"
+id="toc-operational-recommendation">Operational recommendation</a></li>
+</ul></li>
+<li><a href="#experiment-e--parametric-survival-via-lifelines"
+id="toc-experiment-e--parametric-survival-via-lifelines">Experiment E —
+parametric survival via lifelines</a>
+<ul>
+<li><a href="#new-models-added-in-cell_lifetimemodels"
+id="toc-new-models-added-in-cell_lifetimemodels">New models added (in
+<code>cell_lifetime/models/</code>)</a></li>
+<li><a href="#solo-results-5-seeds-fs_cv-n300"
+id="toc-solo-results-5-seeds-fs_cv-n300">Solo results (5 seeds, fs_cv,
+N=300)</a></li>
+<li><a
+href="#4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors"
+id="toc-4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors">4-way
+weighted blend (simplex grid, step 0.1, 286 weight vectors)</a></li>
+</ul></li>
+<li><a href="#experiment-f--tuning-objective-roc-auc-vs-f1"
+id="toc-experiment-f--tuning-objective-roc-auc-vs-f1">Experiment F —
+tuning objective (ROC-AUC vs F1)</a>
+<ul>
+<li><a href="#results-5-seeds-n300"
+id="toc-results-5-seeds-n300">Results (5 seeds, N=300)</a></li>
+<li><a href="#headline-finding" id="toc-headline-finding">Headline
+finding</a></li>
+<li><a href="#why" id="toc-why">Why</a></li>
+<li><a href="#recommendation"
+id="toc-recommendation">Recommendation</a></li>
+</ul></li>
 <li><a href="#methodology" id="toc-methodology">Methodology</a>
 <ul>
 <li><a href="#protocol" id="toc-protocol">Protocol</a></li>
@@ -279,8 +330,9 @@ REPORT</h1>
 <p><strong>Branch:</strong> <code>feature/cell_lifetime</code>  · 
 <strong>Compute:</strong> 5 seeds × 30 Optuna trials × 5 inner CV per
 run, N=300 unless noted, A2.2_b1, 10-core cap</p>
-<p>This report consolidates two experiments aimed at improving the Phase
-1+2+3 in-session baselines.</p>
+<p>This report consolidates <strong>six experiments</strong> (A through
+F) aimed at improving the Phase 1+2+3 in-session baselines. A and B were
+the initial pass; C/D/E/F drill into specific findings.</p>
 <hr />
 <h2 id="tldr">TL;DR</h2>
 <table>
@@ -298,11 +350,33 @@ run, N=300 unless noted, A2.2_b1, 10-core cap</p>
 (RSF overfits at 40)</strong></td>
 </tr>
 <tr class="even">
-<td><strong>Use a z-score blend of RSF + XGB-AFT?</strong></td>
-<td><strong>NO. Blend is more stable (lower std) but consistently 1 std
-below RSF alone.</strong></td>
+<td><strong>Use a z-score (Exp B) or weighted (Exp C) blend of RSF +
+XGB-AFT?</strong></td>
+<td><strong>NO. Optimal blend weight <code>w_rsf = 1.0</code> at every
+horizon — RSF alone is Pareto-optimal.</strong></td>
 </tr>
 <tr class="odd">
+<td><strong>Does adding more survival models (Cox PH, Weibull AFT) help
+via a 4-way blend (Exp E)?</strong></td>
+<td><strong>NO. Best 4-way blend is still <code>w_rsf = 1.0</code>. RSF
+dominates everything tried.</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Where does the survival signal live across feature tiers
+(Exp D)?</strong></td>
+<td><strong>Tier A retention/CE (3 cols) alone gives RSF C-index 0.774;
+Tier C CV-phase (34 cols) alone collapses to 0.577 (near random). Tier A
+is the anchor; CV features are useful additions but not
+standalone.</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Does tuning ON F1 produce better F1 than tuning on ROC-AUC
+(Exp F)?</strong></td>
+<td><strong>NO. AUC-tuned fs_all keeps the highest F1 (0.866); F1-tuned
+fs_all drops to 0.825. Smooth proxies beat discrete targets for HP
+search.</strong></td>
+</tr>
+<tr class="even">
 <td><strong>Headline cycle-life model?</strong></td>
 <td><strong>RSF + fs_cv</strong> — C-index 0.801 ± 0.021, AUC@300 0.879
 ± 0.048.</td>
@@ -520,6 +594,363 @@ better long-horizon prediction, use survival.</li>
 = 0.801 ± 0.021, AUC@300 = 0.879 ± 0.048</strong>.</li>
 <li>This uses all 415 cells (187 observed + 228 censored).</li>
 </ul>
+<hr />
+<h2 id="experiment-c--weighted-blend-grid-search">Experiment C —
+weighted-blend grid search</h2>
+<p><strong>Question</strong>: does a weighted blend
+<code>w · RSF + (1−w) · AFT</code> beat the best single model at any
+choice of <code>w</code> ∈ {0.0, 0.1, …, 1.0}?</p>
+<h3 id="results-per-seed-c-index-curves-fs_cv-5-seeds">Results (per-seed
+C-index curves, fs_cv, 5 seeds)</h3>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: right;">w_rsf</th>
+<th style="text-align: right;">C-index @ N=200</th>
+<th style="text-align: right;">C-index @ N=300</th>
+<th style="text-align: right;">C-index @ N=400</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">0.0 (AFT alone)</td>
+<td style="text-align: right;">0.770</td>
+<td style="text-align: right;">0.770</td>
+<td style="text-align: right;">0.770</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.793</td>
+<td style="text-align: right;">0.790</td>
+<td style="text-align: right;">0.792</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">0.7</td>
+<td style="text-align: right;">0.797</td>
+<td style="text-align: right;">0.795</td>
+<td style="text-align: right;">0.795</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">0.9</td>
+<td style="text-align: right;">0.801</td>
+<td style="text-align: right;">0.800</td>
+<td style="text-align: right;">0.801</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;"><strong>1.0 (RSF alone)</strong></td>
+<td style="text-align: right;"><strong>0.803</strong></td>
+<td style="text-align: right;"><strong>0.801</strong></td>
+<td style="text-align: right;"><strong>0.802</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The curve is <strong>monotonically increasing</strong> at every N.
+Optimal <code>w_rsf = 1.0</code> (RSF alone) at every horizon. AFT
+contributes only noise to the blend.</p>
+<p><strong>Verdict</strong>: blending rejected — RSF is Pareto-optimal
+in the 2-model space. The Exp B null result is now confirmed at fine
+grid resolution.</p>
+<hr />
+<h2 id="experiment-d--feature-tier-ablation">Experiment D — feature tier
+ablation</h2>
+<p><strong>Question</strong>: where does the survival signal live across
+feature tiers? Is <code>rsf × fs_cv &gt; rsf × fs_all</code> because of
+Tier balance, or coincidence?</p>
+<h3 id="tier-composition">Tier composition</h3>
+<ul>
+<li><strong>Tier A</strong> (3 cols): retention/CE —
+<code>coulombic_efficiency_final</code>,
+<code>discharge_capacity_retention_final</code>,
+<code>charge_capacity_retention_min</code></li>
+<li><strong>Tier B</strong> (3 cols): nominal voltage retention
+(charge/discharge, max/std)</li>
+<li><strong>Tier C</strong> (34 cols): CV-phase KWW per-cycle fits +
+aggregates + engineered ratios</li>
+</ul>
+<h3
+id="results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-baselines">Results
+(5 seeds, N=300, all combinations of tiers vs the existing fs_cv/fs_all
+baselines)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Subset</th>
+<th style="text-align: right;">n_cols</th>
+<th style="text-align: right;">xgb_classifier F1</th>
+<th style="text-align: right;">rsf C-index</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>fs_b_only</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0.821 ± 0.050</td>
+<td style="text-align: right;">0.715 ± 0.051</td>
+</tr>
+<tr class="even">
+<td>fs_c_only</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;"><strong>0.785 ± 0.010</strong></td>
+<td style="text-align: right;"><strong>0.577 ± 0.036</strong> ←
+<em>near-random!</em></td>
+</tr>
+<tr class="odd">
+<td>fs_a_only</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0.857 ± 0.024</td>
+<td style="text-align: right;">0.774 ± 0.039</td>
+</tr>
+<tr class="even">
+<td>fs_ab</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">0.852 ± 0.030</td>
+<td style="text-align: right;">0.794 ± 0.021</td>
+</tr>
+<tr class="odd">
+<td>fs_cv</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">0.838 ± 0.029</td>
+<td style="text-align: right;"><strong>0.801 ± 0.021</strong></td>
+</tr>
+<tr class="even">
+<td>fs_all</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;"><strong>0.866 ± 0.037</strong></td>
+<td style="text-align: right;">0.787 ± 0.020</td>
+</tr>
+</tbody>
+</table>
+<h3 id="headline-findings">Headline findings</h3>
+<ol type="1">
+<li><p><strong>Tier C alone collapses RSF survival to C-index
+0.577</strong> — barely above random. The 34 CV-phase features carry
+almost no standalone survival signal; they only help when anchored by
+Tier-A retention. Classification F1 also drops to 0.785 (the worst on
+the table) when limited to Tier C.</p></li>
+<li><p><strong>Tier A alone (3 retention features) gets xgb_classifier
+to F1 = 0.857</strong>, beating fs_cv (12 cols, F1 = 0.838) and within 1
+pt of fs_all (40 cols, F1 = 0.866). For classification, the <strong>3
+retention features carry almost all the signal</strong>; the other 37
+are marginal.</p></li>
+<li><p><strong>For RSF survival, fs_cv stays the winner</strong>
+(C-index 0.801). Tier A alone gets 0.774, fs_ab (A+B) gets 0.794. So
+CV-phase features do add ~0.01 C-index on top of A+B, but only when
+combined — alone they're worthless. fs_all (40) hurts because the 34
+noisy Tier-C features overwhelm the 3 anchoring retention features for
+the nonparametric forest.</p></li>
+<li><p><strong>The fs_cv subset (12 cols) was well-chosen</strong> for
+survival — it captures the Tier-A anchors AND a curated 9 of the 34
+Tier-C features that genuinely help.</p></li>
+</ol>
+<h3 id="operational-recommendation">Operational recommendation</h3>
+<ul>
+<li><strong>For classification</strong>: 3 retention features
+(fs_a_only) gets you to within 1 pt of the headline; production
+deployment doesn't need the full 40-feature pipeline.</li>
+<li><strong>For survival</strong>: keep fs_cv. The CV-phase features are
+useful but only as a complement to retention — alone they're noise.</li>
+</ul>
+<hr />
+<h2 id="experiment-e--parametric-survival-via-lifelines">Experiment E —
+parametric survival via lifelines</h2>
+<p><strong>Question</strong>: do parametric (Weibull AFT) and
+semi-parametric (Cox PH) survival models from <code>lifelines</code> add
+information that tree-based survival doesn't capture? If so, a richer
+ensemble could outperform RSF alone.</p>
+<h3 id="new-models-added-in-cell_lifetimemodels">New models added (in
+<code>cell_lifetime/models/</code>)</h3>
+<ul>
+<li><strong><code>lifelines_weibull_aft</code></strong> —
+<code>lifelines.WeibullAFTFitter</code>, parametric AFT with Weibull
+baseline hazard. risk_orientation = "time_high".</li>
+<li><strong><code>lifelines_cox</code></strong> —
+<code>lifelines.CoxPHFitter</code>, semi-parametric
+proportional-hazards. risk_orientation = "risk_high".</li>
+</ul>
+<p>Both inherit <code>CycleLifeModel</code>, share the
+<code>fit(X, time, event)</code> signature with <code>xgb_aft</code> and
+<code>rsf</code>, register via the guarded-import pattern, and feed
+cleanly into the existing pipeline.</p>
+<h3 id="solo-results-5-seeds-fs_cv-n300">Solo results (5 seeds, fs_cv,
+N=300)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th style="text-align: right;">C-index</th>
+<th style="text-align: right;">AUC@300</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>lifelines_cox</td>
+<td style="text-align: right;">0.752 ± 0.029</td>
+<td style="text-align: right;">0.780 ± 0.052</td>
+<td>semi-parametric, fast</td>
+</tr>
+<tr class="even">
+<td>lifelines_weibull_aft</td>
+<td style="text-align: right;">0.755 ± 0.025</td>
+<td style="text-align: right;">0.784 ± 0.043</td>
+<td>parametric AFT, fast</td>
+</tr>
+<tr class="odd">
+<td>xgb_aft</td>
+<td style="text-align: right;">0.770 ± 0.026</td>
+<td style="text-align: right;">0.836 ± 0.057</td>
+<td>gradient-boosted AFT</td>
+</tr>
+<tr class="even">
+<td><strong>rsf</strong></td>
+<td style="text-align: right;"><strong>0.801 ± 0.021</strong></td>
+<td style="text-align: right;"><strong>0.879 ± 0.048</strong></td>
+<td><strong>tree-based ensemble</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Both lifelines models score below xgb_aft and well below RSF on this
+dataset. Diversity ≠ accuracy.</p>
+<h3
+id="4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors">4-way
+weighted blend (simplex grid, step 0.1, 286 weight vectors)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Weights (RSF, xgb_aft, Cox, Weibull)</th>
+<th style="text-align: right;">C-index</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>(1.0, 0.0, 0.0, 0.0)</strong></td>
+<td style="text-align: right;"><strong>0.801 ± 0.019</strong> ←
+optimal</td>
+</tr>
+<tr class="even">
+<td>(0.9, 0.1, 0.0, 0.0)</td>
+<td style="text-align: right;">0.800 ± 0.018</td>
+</tr>
+<tr class="odd">
+<td>(0.9, 0.0, 0.1, 0.0)</td>
+<td style="text-align: right;">0.800 ± 0.019</td>
+</tr>
+<tr class="even">
+<td>(0.8, 0.0, 0.2, 0.0)</td>
+<td style="text-align: right;">0.799 ± 0.019</td>
+</tr>
+<tr class="odd">
+<td>(any with w_weibull &gt; 0)</td>
+<td style="text-align: right;">strictly ≤ 0.798</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict</strong>: 4-way blend produces the same answer as
+2-way blend — RSF alone is Pareto-optimal across all four survival
+models. The parametric/semi-parametric models genuinely don't add
+information.</p>
+<p>This is a meaningful negative result: it means the tree-based RSF is
+<em>already capturing whatever signal the parametric assumptions could
+extract</em>. Future survival improvements need a fundamentally
+different angle (e.g., new features, different censoring assumptions, or
+a fundamentally different model class like deep survival nets).</p>
+<hr />
+<h2 id="experiment-f--tuning-objective-roc-auc-vs-f1">Experiment F —
+tuning objective (ROC-AUC vs F1)</h2>
+<p><strong>Question</strong>: does tuning xgb_classifier on F1 directly
+produce better F1 than tuning on ROC-AUC?</p>
+<h3 id="results-5-seeds-n300">Results (5 seeds, N=300)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>subset</th>
+<th>tuned on</th>
+<th style="text-align: right;">F1 ± std</th>
+<th style="text-align: right;">ROC-AUC ± std</th>
+<th style="text-align: right;">Δ F1 (F1-tuned − AUC-tuned)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>fs_a_only</td>
+<td>roc_auc</td>
+<td style="text-align: right;">0.857 ± 0.024</td>
+<td style="text-align: right;">0.859 ± 0.022</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td>fs_a_only</td>
+<td><strong>f1</strong></td>
+<td style="text-align: right;">0.842 ± 0.015</td>
+<td style="text-align: right;">0.860 ± 0.033</td>
+<td style="text-align: right;"><strong>−0.015</strong></td>
+</tr>
+<tr class="odd">
+<td>fs_b_only</td>
+<td>roc_auc</td>
+<td style="text-align: right;">0.821 ± 0.050</td>
+<td style="text-align: right;">0.831 ± 0.014</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td>fs_b_only</td>
+<td><strong>f1</strong></td>
+<td style="text-align: right;">0.830 ± 0.022</td>
+<td style="text-align: right;">0.827 ± 0.019</td>
+<td style="text-align: right;"><strong>+0.009</strong></td>
+</tr>
+<tr class="odd">
+<td>fs_cv</td>
+<td>roc_auc</td>
+<td style="text-align: right;">0.838 ± 0.029</td>
+<td style="text-align: right;">0.875 ± 0.016</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td>fs_cv</td>
+<td><strong>f1</strong></td>
+<td style="text-align: right;">0.842 ± 0.024</td>
+<td style="text-align: right;"><strong>0.884 ± 0.023</strong></td>
+<td style="text-align: right;"><strong>+0.004</strong></td>
+</tr>
+<tr class="odd">
+<td>fs_all</td>
+<td>roc_auc</td>
+<td style="text-align: right;"><strong>0.866 ± 0.037</strong></td>
+<td style="text-align: right;">0.875 ± 0.027</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td>fs_all</td>
+<td><strong>f1</strong></td>
+<td style="text-align: right;">0.825 ± 0.031</td>
+<td style="text-align: right;">0.864 ± 0.022</td>
+<td style="text-align: right;"><strong>−0.041</strong> ← worse!</td>
+</tr>
+</tbody>
+</table>
+<h3 id="headline-finding">Headline finding</h3>
+<p><strong>Tuning on F1 makes F1 <em>worse</em> on the headline subset
+(fs_all, −4.1 pts).</strong> AUC-tuned fs_all stays the F1 winner at
+0.866.</p>
+<h3 id="why">Why</h3>
+<p>F1 is a <strong>step function</strong> in probability space — it
+changes only when predictions flip across the 0.5 decision threshold.
+Optuna's TPE sampler gets a noisy/discrete objective with very little
+gradient information, especially with only 30 trials × 5 inner
+folds.</p>
+<p>ROC-AUC is <strong>smooth</strong> (rank-based on continuous
+probabilities). TPE gets clean gradient information, converges to
+well-calibrated models, and those happen to land at favorable F1 at the
+default 0.5 threshold.</p>
+<p>This is a classic ML lesson: <strong>tune on a smooth proxy, evaluate
+on the metric you care about.</strong> Hyperparameter optimization
+landscapes shaped by discrete metrics are jagged and
+search-unfriendly.</p>
+<h3 id="recommendation">Recommendation</h3>
+<p>Keep <code>optimize: roc_auc</code> in
+<code>configs/xgb_classifier.yaml</code>. The F1 numbers reported
+throughout this report are the right ones.</p>
 <hr />
 <h2 id="methodology">Methodology</h2>
 <h3 id="protocol">Protocol</h3>

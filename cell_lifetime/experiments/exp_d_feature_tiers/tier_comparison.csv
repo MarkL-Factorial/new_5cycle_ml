@@ -1,0 +1,13 @@
+task,model,feature_subset,n_features,metric,mean,std
+classification,xgb_classifier,fs_a_only,?,test_f1_mean,0.8572155010667538,0.02411148360604063
+classification,xgb_classifier,fs_b_only,?,test_f1_mean,0.8205269486468886,0.0500286207050515
+classification,xgb_classifier,fs_ab,?,test_f1_mean,0.8518089710800709,0.030138109029234188
+classification,xgb_classifier,fs_cv,?,test_f1_mean,0.8377149276393933,0.029385207923216274
+classification,xgb_classifier,fs_c_only,?,test_f1_mean,0.7846372980950151,0.009987984212547544
+classification,xgb_classifier,fs_all,?,test_f1_mean,0.8655806079556891,0.03735262328609609
+survival,rsf,fs_a_only,?,test_c_index_mean,0.7741841855100906,0.03867218553589184
+survival,rsf,fs_b_only,?,test_c_index_mean,0.7146066098914942,0.05139584337539082
+survival,rsf,fs_ab,?,test_c_index_mean,0.794234067717613,0.021154511116530897
+survival,rsf,fs_cv,?,test_c_index_mean,0.801276500298774,0.021331097502515613
+survival,rsf,fs_c_only,?,test_c_index_mean,0.5769599918374592,0.03556526315674836
+survival,rsf,fs_all,?,test_c_index_mean,0.786510998100021,0.020392958137600364

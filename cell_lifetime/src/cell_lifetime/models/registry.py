@@ -64,3 +64,16 @@ try:
     _REGISTRY["rsf"] = RSFModel
 except ImportError:
     pass
+
+# Exp E: parametric / semi-parametric survival via lifelines
+try:
+    from cell_lifetime.models.lifelines_weibull_aft import LifelinesWeibullAFTModel  # noqa: F401
+    _REGISTRY["lifelines_weibull_aft"] = LifelinesWeibullAFTModel
+except ImportError:
+    pass
+
+try:
+    from cell_lifetime.models.lifelines_cox import LifelinesCoxModel  # noqa: F401
+    _REGISTRY["lifelines_cox"] = LifelinesCoxModel
+except ImportError:
+    pass

@@ -64,36 +64,70 @@ def _resolve_preprocess_root(override: Optional[str] = None) -> Path:
 def _load_feature_subset(subset_name: str, preprocess_root: Optional[str] = None) -> list[str]:
     """Resolve a feature-subset name to a list of column names.
 
-    Two resolution paths:
+    Resolution paths (checked in order):
 
-    1. **Named subset from the manifest** (`subsets:` block). Example: `fs_cv` →
-       the 12 CV-phase features used for the legacy report. This is the
-       upstream-controlled path; ml_label_preprocess owns the definitions.
+    1. **Named subset from the manifest** (`subsets:` block). Example:
+       `fs_cv` → the 12 CV-phase features used for the legacy report.
+       Upstream-controlled; ml_label_preprocess owns the definitions.
 
-    2. **`fs_all`** (added by cell_lifetime): every column under
-       `datasets.cell_features.columns` whose `role == "feature"`. Built
-       on the fly so we don't need to modify the upstream manifest to
-       expose the full feature set (40 columns on A2.2_b1). cell_lifetime
-       owns this name; if ml_label_preprocess later defines its own
-       `fs_all` subset, the manifest one wins.
+    2. **cell_lifetime-owned dynamic subsets**, computed from the
+       manifest's `role: feature` columns without modifying the upstream:
+       - `fs_all`     — all 40 feature-role columns
+       - `fs_a_only`  — Tier A (retention + coulombic efficiency, 3 cols)
+       - `fs_b_only`  — Tier B (nominal voltage, 3 cols)
+       - `fs_c_only`  — Tier C (CV-phase KWW + aggregates, 34 cols)
+       - `fs_ab`      — Tier A + Tier B (6 cols, no CV phase)
+
+       Tier membership is inferred from column names:
+       - Tier B: name contains 'nominal_voltage'
+       - Tier A: name contains 'coulombic_efficiency' OR ends with
+                 'capacity_retention_{final,min,max,...}' AND is NOT Tier B
+       - Tier C: everything else
+
+       If ml_label_preprocess later defines a `fs_all` etc. subset of
+       its own, the manifest one wins (rule 1 short-circuits).
     """
     path = column_roles_path(preprocess_root)
     manifest = yaml.safe_load(path.read_text())
     subsets = manifest.get("subsets", {})
     if subset_name in subsets:
         return list(subsets[subset_name]["members"])
-    if subset_name == "fs_all":
+
+    DYNAMIC = ("fs_all", "fs_a_only", "fs_b_only", "fs_c_only", "fs_ab")
+    if subset_name in DYNAMIC:
         cols = manifest.get("datasets", {}).get("cell_features", {}).get("columns", [])
-        members = [c["name"] for c in cols if c.get("role") == "feature"]
-        if not members:
+        all_features = [c["name"] for c in cols if c.get("role") == "feature"]
+        if not all_features:
             raise KeyError(
-                f"fs_all resolved to 0 columns under {path}::datasets.cell_features.columns "
-                f"(check the manifest's role field)"
+                f"feature-role columns resolved to 0 under {path}; "
+                f"check the manifest's role field"
             )
-        return members
+        tier_b = [c for c in all_features if "nominal_voltage" in c]
+        tier_a = [
+            c for c in all_features
+            if c not in tier_b and (
+                "coulombic_efficiency" in c
+                or "capacity_retention" in c
+            )
+        ]
+        tier_c = [c for c in all_features if c not in tier_a and c not in tier_b]
+        out = {
+            "fs_all": all_features,
+            "fs_a_only": tier_a,
+            "fs_b_only": tier_b,
+            "fs_c_only": tier_c,
+            "fs_ab": tier_a + tier_b,
+        }[subset_name]
+        if not out:
+            raise KeyError(
+                f"subset {subset_name!r} resolved to 0 columns; check the "
+                f"tier classifier in _load_feature_subset"
+            )
+        return out
+
     raise KeyError(
         f"subset {subset_name!r} not found in {path}::subsets "
-        f"(available: {sorted(list(subsets) + ['fs_all'])})"
+        f"(available named: {sorted(subsets)} + dynamic: {list(DYNAMIC)})"
     )
 
 

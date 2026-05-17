@@ -33,3 +33,52 @@ def test_unknown_subset_raises():
 def test_fs_cv_still_works():
     fs_cv = _load_feature_subset("fs_cv")
     assert "coulombic_efficiency_final" in fs_cv or "discharge_capacity_retention_final" in fs_cv
+
+
+@pytest.mark.skipif(not _BUNDLE.exists(), reason=f"bundle missing at {_BUNDLE}")
+def test_tier_subsets_partition_fs_all():
+    """Tiers A, B, C must partition the fs_all columns disjointly + completely."""
+    fs_all = set(_load_feature_subset("fs_all"))
+    a = set(_load_feature_subset("fs_a_only"))
+    b = set(_load_feature_subset("fs_b_only"))
+    c = set(_load_feature_subset("fs_c_only"))
+    # Each tier non-empty
+    assert len(a) > 0 and len(b) > 0 and len(c) > 0
+    # Pairwise disjoint
+    assert not (a & b), f"A ∩ B: {a & b}"
+    assert not (a & c), f"A ∩ C: {a & c}"
+    assert not (b & c), f"B ∩ C: {b & c}"
+    # Union covers fs_all
+    assert a | b | c == fs_all, f"missing: {fs_all - (a | b | c)}; extra: {(a | b | c) - fs_all}"
+
+
+@pytest.mark.skipif(not _BUNDLE.exists(), reason=f"bundle missing at {_BUNDLE}")
+def test_fs_ab_is_a_plus_b():
+    a = set(_load_feature_subset("fs_a_only"))
+    b = set(_load_feature_subset("fs_b_only"))
+    ab = set(_load_feature_subset("fs_ab"))
+    assert ab == a | b
+
+
+@pytest.mark.skipif(not _BUNDLE.exists(), reason=f"bundle missing at {_BUNDLE}")
+def test_tier_a_contains_retention_and_ce():
+    a = _load_feature_subset("fs_a_only")
+    # Spot-check the named cols we know are Tier A
+    assert "coulombic_efficiency_final" in a
+    assert "discharge_capacity_retention_final" in a
+
+
+@pytest.mark.skipif(not _BUNDLE.exists(), reason=f"bundle missing at {_BUNDLE}")
+def test_tier_b_is_nominal_voltage():
+    b = _load_feature_subset("fs_b_only")
+    assert all("nominal_voltage" in c for c in b)
+
+
+@pytest.mark.skipif(not _BUNDLE.exists(), reason=f"bundle missing at {_BUNDLE}")
+def test_tier_c_excludes_a_and_b():
+    c = _load_feature_subset("fs_c_only")
+    # No retention/CE/nominal_voltage prefixes
+    for name in c:
+        assert "coulombic_efficiency" not in name
+        assert "capacity_retention" not in name
+        assert "nominal_voltage" not in name
