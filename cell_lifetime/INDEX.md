@@ -12,7 +12,8 @@ Last updated: 2026-05-15T22:00:00Z
 | phase3_rsf_and_summary | in-session | 2026-05-16T18:54Z | 2026-05-16T18:56Z | OK | 4b4b394 | 3 | 47 | 47 | run_logs/20260516T185357Z_phase3_rsf_smoke.log |
 | phase_experiments_a_b | in-session | 2026-05-16T19:10Z | 2026-05-16T23:35Z | OK | b41f0ce | 5 src + 14 exp | 50 | 50 | experiments/REPORT.html |
 | phase_experiments_c_d_e_f | in-session | 2026-05-17T00:00Z | 2026-05-17T00:25Z | OK | 29c6857 | 4 src + 16 exp | 66 | 66 | experiments/REPORT.html |
-| phase_experiments_g | in-session | 2026-05-17T00:42Z | 2026-05-17T03:23Z | OK | (pending) | 3 src + 10 exp | 75 | 75 | experiments/REPORT.html |
+| phase_experiments_g | in-session | 2026-05-17T00:42Z | 2026-05-17T03:23Z | OK | a9573d2 | 3 src + 10 exp | 75 | 75 | experiments/REPORT.html |
+| phase_experiments_g_followup_fsall | in-session | 2026-05-17T14:20Z | 2026-05-17T15:14Z | OK | (pending) | 0 src + 7 exp | 75 | 75 | experiments/REPORT.html |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 

@@ -210,8 +210,8 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">cell_lifetime experiments — REPORT</h1>
-<p class="subtitle">Seven experiments (A–G), with per-N comparison
-tables</p>
+<p class="subtitle">Seven experiments (A–G) + cross-experiment synthesis
+with fs_all completion</p>
 <p class="date">2026-05-17</p>
 </header>
 <nav id="TOC" role="doc-toc">
@@ -329,6 +329,23 @@ look</a></li>
 <li><a href="#recommendation-updated"
 id="toc-recommendation-updated">Recommendation (updated)</a></li>
 </ul></li>
+<li><a href="#cross-experiment-synthesis"
+id="toc-cross-experiment-synthesis">Cross-experiment synthesis</a>
+<ul>
+<li><a
+href="#q1--best-classifier-by-f1-considering-all-of-n--200-300-400"
+id="toc-q1--best-classifier-by-f1-considering-all-of-n--200-300-400">Q1
+— Best classifier by F1, considering all of N ∈ {200, 300, 400}</a></li>
+<li><a
+href="#q2--best-cycle-life-predictor-by-auc-or-by-percentage-error"
+id="toc-q2--best-cycle-life-predictor-by-auc-or-by-percentage-error">Q2
+— Best cycle-life predictor (by AUC or by percentage error)</a></li>
+<li><a href="#headline-recommendation-1"
+id="toc-headline-recommendation-1">Headline recommendation</a></li>
+<li><a href="#deployment-context-variants"
+id="toc-deployment-context-variants">Deployment-context
+variants</a></li>
+</ul></li>
 <li><a href="#methodology" id="toc-methodology">Methodology</a>
 <ul>
 <li><a href="#protocol" id="toc-protocol">Protocol</a></li>
@@ -411,9 +428,17 @@ cells have |Δ| &gt; pooled std). The Exp F finding was fs_all-specific —
 likely an Optuna-in-high-dim artifact.</strong></td>
 </tr>
 <tr class="odd">
+<td><strong>Headline classifier (avg F1 across
+N=200/300/400)?</strong></td>
+<td><strong>ebm_classifier × fs_all</strong> (avg F1 = 0.866); ebm ×
+fs_a_only (avg 0.862) is the deployment-friendly 3-feature
+alternative.</td>
+</tr>
+<tr class="even">
 <td><strong>Headline cycle-life model?</strong></td>
 <td><strong>RSF + fs_cv</strong> — C-index 0.801 ± 0.021, AUC@300 0.879
-± 0.048.</td>
+± 0.048. Also wins MAE = 132.8 cyc and MAPE = 65% when its risk score is
+rank-quantile-calibrated.</td>
 </tr>
 </tbody>
 </table>
@@ -1506,6 +1531,8 @@ defined in <code>survival_metrics</code>.</p>
 <th>fs_a_only AUC</th>
 <th>fs_cv F1</th>
 <th>fs_cv AUC</th>
+<th>fs_all F1</th>
+<th>fs_all AUC</th>
 </tr>
 </thead>
 <tbody>
@@ -1515,6 +1542,8 @@ defined in <code>survival_metrics</code>.</p>
 <td>0.8951 ± 0.0678</td>
 <td>0.8999 ± 0.0378</td>
 <td>0.9051 ± 0.0628</td>
+<td>0.8880 ± 0.0194</td>
+<td>0.8903 ± 0.0678</td>
 </tr>
 <tr class="even">
 <td>ebm_classifier</td>
@@ -1522,6 +1551,8 @@ defined in <code>survival_metrics</code>.</p>
 <td>0.8892 ± 0.0598</td>
 <td>0.9108 ± 0.0269</td>
 <td>0.8756 ± 0.0861</td>
+<td><strong>0.9155 ± 0.0326</strong></td>
+<td>0.8946 ± 0.0721</td>
 </tr>
 <tr class="odd">
 <td>rsf</td>
@@ -1529,6 +1560,8 @@ defined in <code>survival_metrics</code>.</p>
 <td><strong>0.9360 ± 0.0298</strong></td>
 <td>0.5793 ± 0.0583</td>
 <td>0.9279 ± 0.0335</td>
+<td>—</td>
+<td>—</td>
 </tr>
 <tr class="even">
 <td>xgb_aft</td>
@@ -1536,15 +1569,17 @@ defined in <code>survival_metrics</code>.</p>
 <td>0.9154 ± 0.0277</td>
 <td>0.5607 ± 0.0425</td>
 <td>0.9192 ± 0.0481</td>
+<td>—</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
-<p>At N=200, <strong>rsf × fs_a_only wins on AUC (0.936)</strong>, but
-its F1 (0.589) is much worse than the classifiers because the
-median-threshold binary metric is a poor fit for survival models at
-short horizons (most cells haven't failed yet). For ranking-based
-applications, RSF dominates; for threshold-based applications (default
-0.5 cutoff), use the classifiers.</p>
+<p>At N=200, <strong>rsf × fs_a_only wins on AUC (0.936)</strong> and
+<strong>ebm × fs_all wins on F1 (0.916)</strong>. RSF's F1 (0.589) is
+much worse than classifiers because the median-threshold binary metric
+is a poor fit for survival models at short horizons (most cells haven't
+failed yet). For ranking-based applications, RSF dominates; for
+threshold-based applications, use the classifiers.</p>
 <h4 id="n--300">N = 300</h4>
 <table>
 <thead>
@@ -1554,22 +1589,28 @@ applications, RSF dominates; for threshold-based applications (default
 <th>fs_a_only AUC</th>
 <th>fs_cv F1</th>
 <th>fs_cv AUC</th>
+<th>fs_all F1</th>
+<th>fs_all AUC</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>xgb_classifier</td>
-<td><strong>0.8572 ± 0.0241</strong></td>
+<td>0.8572 ± 0.0241</td>
 <td>0.8589 ± 0.0223</td>
 <td>0.8377 ± 0.0294</td>
-<td><strong>0.8753 ± 0.0155</strong></td>
+<td>0.8753 ± 0.0155</td>
+<td>0.8656 ± 0.0374</td>
+<td>0.8750 ± 0.0265</td>
 </tr>
 <tr class="even">
 <td>ebm_classifier</td>
 <td>0.8545 ± 0.0115</td>
-<td><strong>0.8642 ± 0.0226</strong></td>
+<td>0.8642 ± 0.0226</td>
 <td>0.8437 ± 0.0444</td>
 <td>0.8639 ± 0.0543</td>
+<td><strong>0.8697 ± 0.0250</strong></td>
+<td><strong>0.8865 ± 0.0366</strong></td>
 </tr>
 <tr class="odd">
 <td>rsf</td>
@@ -1577,6 +1618,8 @@ applications, RSF dominates; for threshold-based applications (default
 <td>0.8518 ± 0.0526</td>
 <td>0.7094 ± 0.0514</td>
 <td>0.8743 ± 0.0521</td>
+<td>—</td>
+<td>—</td>
 </tr>
 <tr class="even">
 <td>xgb_aft</td>
@@ -1584,15 +1627,16 @@ applications, RSF dominates; for threshold-based applications (default
 <td>0.8312 ± 0.0784</td>
 <td>0.6734 ± 0.0692</td>
 <td>0.8301 ± 0.0644</td>
+<td>—</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
-<p>At N=300, classifiers and RSF are within 1 std on AUC;
-<strong>xgb_classifier × fs_cv ties RSF × fs_cv on AUC at
-0.87–0.88</strong>. The headline classification number (F1 = 0.866 ±
-0.037 on fs_all from Exp A) is clearly above all fs_a_only and fs_cv
-numbers — confirming the 40-feature subset is the F1 winner for
-classification.</p>
+<p>At N=300, <strong>ebm_classifier × fs_all wins on both F1 (0.870) and
+AUC (0.887)</strong>. The original Exp A headline of xgb_classifier ×
+fs_all = 0.866 is essentially tied with EBM × fs_all (0.870) within 1
+std, but EBM's tighter std (0.025 vs 0.037) makes it slightly
+preferable. RSF × fs_cv AUC = 0.874 is competitive on AUC alone.</p>
 <h4 id="n--400">N = 400</h4>
 <table>
 <thead>
@@ -1602,6 +1646,8 @@ classification.</p>
 <th>fs_a_only AUC</th>
 <th>fs_cv F1</th>
 <th>fs_cv AUC</th>
+<th>fs_all F1</th>
+<th>fs_all AUC</th>
 </tr>
 </thead>
 <tbody>
@@ -1610,14 +1656,18 @@ classification.</p>
 <td>0.8104 ± 0.0686</td>
 <td>0.8658 ± 0.0534</td>
 <td>0.7973 ± 0.0542</td>
-<td><strong>0.8861 ± 0.0422</strong></td>
+<td>0.8861 ± 0.0422</td>
+<td>0.7834 ± 0.0729</td>
+<td>0.8816 ± 0.0380</td>
 </tr>
 <tr class="even">
 <td>ebm_classifier</td>
-<td><strong>0.8260 ± 0.0577</strong></td>
-<td><strong>0.8847 ± 0.0530</strong></td>
+<td>0.8260 ± 0.0577</td>
+<td>0.8847 ± 0.0530</td>
 <td>0.8125 ± 0.0661</td>
 <td>0.8778 ± 0.0326</td>
+<td><strong>0.8134 ± 0.0507</strong></td>
+<td><strong>0.8927 ± 0.0368</strong></td>
 </tr>
 <tr class="odd">
 <td>rsf</td>
@@ -1625,6 +1675,8 @@ classification.</p>
 <td>0.8215 ± 0.0688</td>
 <td>0.7643 ± 0.0403</td>
 <td>0.8577 ± 0.0434</td>
+<td>—</td>
+<td>—</td>
 </tr>
 <tr class="even">
 <td>xgb_aft</td>
@@ -1632,22 +1684,25 @@ classification.</p>
 <td>0.8142 ± 0.0917</td>
 <td>0.7319 ± 0.0617</td>
 <td>0.8323 ± 0.0666</td>
+<td>—</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
-<p>At N=400 (long horizon), <strong>ebm_classifier × fs_a_only edges out
-the field on both F1 (0.826) and AUC (0.885)</strong> — the 3 retention
-features contain most of the long-horizon signal, and EBM's
-bin-by-feature fits capture it cleanly. RSF/AFT survival models lag the
-classifiers on AUC at long N because more cells are censored beyond
-N=400 (meaning less event data to train the rank ordering on).</p>
+<p>At N=400 (long horizon), <strong>ebm_classifier × fs_all wins on AUC
+(0.893)</strong> while <strong>ebm_classifier × fs_a_only wins on F1
+(0.826)</strong>. The 3 retention features still carry most of the F1
+signal at long horizon; fs_all gives slightly better AUC at the cost of
+similar F1. xgb_classifier × fs_all dropped sharply at N=400 (F1=0.783),
+confirming xgb is not robust at long horizons with the full feature
+set.</p>
 <h4 id="cross-horizon-summary">Cross-horizon summary</h4>
 <p>Best AUC by N (any model, any fs in this comparison):</p>
 <table>
 <thead>
 <tr class="header">
 <th>N</th>
-<th>Best model + fs</th>
+<th>Best model × fs</th>
 <th>AUC</th>
 </tr>
 </thead>
@@ -1659,19 +1714,52 @@ N=400 (meaning less event data to train the rank ordering on).</p>
 </tr>
 <tr class="even">
 <td>300</td>
-<td>xgb_classifier × fs_cv</td>
-<td>0.8753 ± 0.0155</td>
+<td>ebm_classifier × fs_all</td>
+<td>0.8865 ± 0.0366</td>
 </tr>
 <tr class="odd">
 <td>400</td>
-<td>xgb_classifier × fs_cv</td>
-<td>0.8861 ± 0.0422</td>
+<td>ebm_classifier × fs_all</td>
+<td><strong>0.8927 ± 0.0368</strong></td>
 </tr>
 </tbody>
 </table>
 <p>AUC drops then partially recovers from N=200 to N=400. The N=300 dip
 is a known phenomenon for binary survival at the median region — class
 balance is most ambiguous there, making the metric noisier.</p>
+<p>Best F1 by N:</p>
+<table>
+<thead>
+<tr class="header">
+<th>N</th>
+<th>Best model × fs</th>
+<th>F1</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>200</td>
+<td>ebm_classifier × fs_all</td>
+<td><strong>0.9155 ± 0.0326</strong></td>
+</tr>
+<tr class="even">
+<td>300</td>
+<td>ebm_classifier × fs_all</td>
+<td>0.8697 ± 0.0250</td>
+</tr>
+<tr class="odd">
+<td>400</td>
+<td>ebm_classifier × fs_a_only</td>
+<td>0.8260 ± 0.0577</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ebm_classifier × fs_all is the strongest single classifier
+across horizons</strong> — best F1 at N=200 and N=300, best AUC at N=300
+and N=400, and only loses F1@400 to its smaller cousin (ebm × fs_a_only)
+by ~1 pt (inside std). For ranking at N=200, the survival model (rsf ×
+fs_a_only AUC = 0.936) is still the strongest cell observed across all 7
+experiments.</p>
 <h3 id="per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
 (F1-tuned − AUC-tuned), held-out F1 / F1@N</h3>
 <table>
@@ -1935,6 +2023,477 @@ feature counts scale to 40, F1-tuning starts to lose ground. The
 take-away is more about Optuna's behavior in higher-dimensional HP ×
 feature landscapes than about a fundamental F1-vs-AUC tradeoff.</li>
 </ul>
+<hr />
+<h2 id="cross-experiment-synthesis">Cross-experiment synthesis</h2>
+<p>Two questions the user posed across all 7 experiments, with
+data-backed answers.</p>
+<h3 id="q1--best-classifier-by-f1-considering-all-of-n--200-300-400">Q1
+— Best classifier by F1, considering all of N ∈ {200, 300, 400}</h3>
+<p>Computing average F1 across the three horizons (AUC-tuned variant per
+the Exp F/G recommendation):</p>
+<table>
+<thead>
+<tr class="header">
+<th>Method × fs</th>
+<th style="text-align: right;">F1@200</th>
+<th style="text-align: right;">F1@300</th>
+<th style="text-align: right;">F1@400</th>
+<th style="text-align: right;"><strong>Avg F1</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>ebm_classifier × fs_a_only</strong></td>
+<td style="text-align: right;">0.9061</td>
+<td style="text-align: right;">0.8545</td>
+<td style="text-align: right;">0.8260</td>
+<td style="text-align: right;"><strong>0.8622</strong></td>
+</tr>
+<tr class="even">
+<td>ebm_classifier × fs_cv</td>
+<td style="text-align: right;">0.9108</td>
+<td style="text-align: right;">0.8437</td>
+<td style="text-align: right;">0.8125</td>
+<td style="text-align: right;">0.8557</td>
+</tr>
+<tr class="odd">
+<td>xgb_classifier × fs_a_only</td>
+<td style="text-align: right;">0.8970</td>
+<td style="text-align: right;">0.8572</td>
+<td style="text-align: right;">0.8104</td>
+<td style="text-align: right;">0.8549</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier × fs_cv</td>
+<td style="text-align: right;">0.8999</td>
+<td style="text-align: right;">0.8377</td>
+<td style="text-align: right;">0.7973</td>
+<td style="text-align: right;">0.8450</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Provisional winner:
+<code>ebm_classifier × fs_a_only</code></strong> — avg F1 = 0.862.</p>
+<p>Why this is the right pick on these four (model, fs)
+combinations:</p>
+<ol type="1">
+<li><strong>Highest mean across all three horizons.</strong> Beats
+<code>xgb_classifier × fs_a_only</code> by +0.007,
+<code>ebm_classifier × fs_cv</code> by +0.007,
+<code>xgb_classifier × fs_cv</code> by +0.017.</li>
+<li><strong>Tightest std at N=300</strong> (the middle, hardest
+horizon): <code>ebm × fs_a_only</code> = 0.8545 ± 0.0115. Compare to
+<code>xgb_classifier × fs_a_only</code> = 0.8572 ± 0.0241 (twice as
+wide). Cleaner threshold placement.</li>
+<li><strong>Only 3 features.</strong> Production-grade interpretability
+comes for free.</li>
+<li><strong>Best at long horizon (N=400) too</strong>: F1@400 = 0.826
+beats every other (model, fs ∈ {fs_a, fs_cv}) cell.</li>
+</ol>
+<h4 id="follow-up-closing-the-fs_all-gap">Follow-up: closing the fs_all
+gap</h4>
+<p>The Exp G follow-up filled in 5 missing cells (xgb_classifier ×
+fs_all × N={200,400} and ebm_classifier × fs_all × {200,300,400}). The
+full comparison across <strong>6</strong> (model, fs) combinations × 3
+horizons:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Method × fs</th>
+<th style="text-align: right;">F1@200</th>
+<th style="text-align: right;">F1@300</th>
+<th style="text-align: right;">F1@400</th>
+<th style="text-align: right;"><strong>Avg F1</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>ebm_classifier × fs_all</strong> (40)</td>
+<td style="text-align: right;">0.9155</td>
+<td style="text-align: right;">0.8697</td>
+<td style="text-align: right;">0.8134</td>
+<td style="text-align: right;"><strong>0.8662</strong></td>
+</tr>
+<tr class="even">
+<td>ebm_classifier × fs_a_only (3)</td>
+<td style="text-align: right;">0.9061</td>
+<td style="text-align: right;">0.8545</td>
+<td style="text-align: right;">0.8260</td>
+<td style="text-align: right;">0.8622</td>
+</tr>
+<tr class="odd">
+<td>ebm_classifier × fs_cv (12)</td>
+<td style="text-align: right;">0.9108</td>
+<td style="text-align: right;">0.8437</td>
+<td style="text-align: right;">0.8125</td>
+<td style="text-align: right;">0.8557</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier × fs_a_only (3)</td>
+<td style="text-align: right;">0.8970</td>
+<td style="text-align: right;">0.8572</td>
+<td style="text-align: right;">0.8104</td>
+<td style="text-align: right;">0.8549</td>
+</tr>
+<tr class="odd">
+<td>xgb_classifier × fs_all (40)</td>
+<td style="text-align: right;">0.8880</td>
+<td style="text-align: right;">0.8656</td>
+<td style="text-align: right;">0.7834</td>
+<td style="text-align: right;">0.8456</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier × fs_cv (12)</td>
+<td style="text-align: right;">0.8999</td>
+<td style="text-align: right;">0.8377</td>
+<td style="text-align: right;">0.7973</td>
+<td style="text-align: right;">0.8450</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Updated Q1 verdict: <code>ebm_classifier × fs_all</code>
+wins</strong> (avg F1 0.8662), beating ebm_classifier × fs_a_only by
+only +0.004 — inside std.</p>
+<p>Practical implication: <strong>EBM dominates classification</strong>
+(the top 3 rows are all EBM variants). The choice between fs_all (40
+features, slightly better avg F1) and fs_a_only (3 features,
+deployment-friendly, −0.004 F1) is the standard
+accuracy-vs-interpretability tradeoff.</p>
+<p><strong>Two operational picks</strong>:</p>
+<ul>
+<li><strong>Best accuracy</strong>: <code>ebm_classifier × fs_all</code>
+— avg F1 0.8662, 40 features.</li>
+<li><strong>Best deployment</strong>:
+<code>ebm_classifier × fs_a_only</code> — avg F1 0.8622, only 3 features
+(retention + CE). The 0.4-pt gap is well inside std at every N.</li>
+</ul>
+<p>Curiously, <strong>xgb_classifier × fs_all underperforms</strong> at
+long horizon (F1@400 = 0.783 vs ebm × fs_all = 0.813). The Exp A
+headline value of "F1 = 0.866 at N=300" turned out to be a
+single-horizon peak, not a robust winner.</p>
+<h3 id="q2--best-cycle-life-predictor-by-auc-or-by-percentage-error">Q2
+— Best cycle-life predictor (by AUC or by percentage error)</h3>
+<p>"Cycle life prediction" admits three framings:</p>
+<ul>
+<li><strong>Ranking</strong> (which cells fail first) → AUC@N or
+C-index</li>
+<li><strong>Threshold classification</strong> (pass/bad at fixed N) →
+AUC@N</li>
+<li><strong>Continuous prediction</strong> (predicted cycles in time
+units) → MAE / MAPE</li>
+</ul>
+<h4 id="data-for-ranking-aucn-across-n200300400">Data for ranking (AUC@N
+across N=200/300/400)</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Method × fs</th>
+<th style="text-align: right;">AUC@200</th>
+<th style="text-align: right;">AUC@300</th>
+<th style="text-align: right;">AUC@400</th>
+<th style="text-align: right;"><strong>Avg AUC</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier × fs_cv</td>
+<td style="text-align: right;">0.9051</td>
+<td style="text-align: right;">0.8753</td>
+<td style="text-align: right;"><strong>0.8861</strong></td>
+<td style="text-align: right;"><strong>0.8888</strong></td>
+</tr>
+<tr class="even">
+<td>rsf × fs_cv</td>
+<td style="text-align: right;">0.9279</td>
+<td style="text-align: right;"><strong>0.8743</strong></td>
+<td style="text-align: right;">0.8577</td>
+<td style="text-align: right;">0.8866</td>
+</tr>
+<tr class="odd">
+<td>ebm_classifier × fs_a_only</td>
+<td style="text-align: right;">0.8892</td>
+<td style="text-align: right;">0.8642</td>
+<td style="text-align: right;">0.8847</td>
+<td style="text-align: right;">0.8794</td>
+</tr>
+<tr class="even">
+<td>xgb_classifier × fs_a_only</td>
+<td style="text-align: right;">0.8951</td>
+<td style="text-align: right;">0.8589</td>
+<td style="text-align: right;">0.8658</td>
+<td style="text-align: right;">0.8733</td>
+</tr>
+<tr class="odd">
+<td>rsf × fs_a_only</td>
+<td style="text-align: right;"><strong>0.9360</strong></td>
+<td style="text-align: right;">0.8518</td>
+<td style="text-align: right;">0.8215</td>
+<td style="text-align: right;">0.8698</td>
+</tr>
+<tr class="even">
+<td>xgb_aft × fs_cv</td>
+<td style="text-align: right;">0.9192</td>
+<td style="text-align: right;">0.8301</td>
+<td style="text-align: right;">0.8323</td>
+<td style="text-align: right;">0.8605</td>
+</tr>
+</tbody>
+</table>
+<p><code>xgb_classifier × fs_cv</code> marginally edges
+<code>rsf × fs_cv</code> on average (0.889 vs 0.887, well inside noise).
+<strong>But this comparison is misleading</strong>: xgb_classifier
+trains <strong>three separate models</strong> (one per N); rsf trains
+<strong>one model</strong> evaluated at three thresholds — apples to
+oranges.</p>
+<h4 id="data-for-continuous-prediction-mae--mape">Data for continuous
+prediction (MAE / MAPE)</h4>
+<p>Both regressors AND survival models can produce cycle-life
+magnitudes, but via different mechanisms. <strong>All MAE/MAPE computed
+on faded test cells only</strong>, 5 seeds, identical per-cell
+methodology (<code>MAPE = mean(|err|/true)</code>):</p>
+<table>
+<thead>
+<tr class="header">
+<th>Method × fs</th>
+<th style="text-align: right;">MAE (cycles)</th>
+<th style="text-align: right;">MAPE</th>
+<th style="text-align: right;">RMSE</th>
+<th>Prediction type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>rsf × fs_cv</strong> (12)</td>
+<td style="text-align: right;"><strong>132.8 ± 26.3</strong></td>
+<td style="text-align: right;"><strong>64.7%</strong></td>
+<td style="text-align: right;">187.0</td>
+<td>rank-quantile calibrated</td>
+</tr>
+<tr class="even">
+<td>rsf × fs_a_only (3)</td>
+<td style="text-align: right;">133.4 ± 30.7</td>
+<td style="text-align: right;">65.3%</td>
+<td style="text-align: right;">186.7</td>
+<td>rank-quantile calibrated</td>
+</tr>
+<tr class="odd">
+<td>ebm_regressor × fs_all (40)</td>
+<td style="text-align: right;">136.2 ± 12.3</td>
+<td style="text-align: right;">115%</td>
+<td style="text-align: right;">—</td>
+<td>direct regression</td>
+</tr>
+<tr class="even">
+<td>xgb_regressor × fs_all (40)</td>
+<td style="text-align: right;">136.5 ± 9.6</td>
+<td style="text-align: right;">114%</td>
+<td style="text-align: right;">—</td>
+<td>direct regression</td>
+</tr>
+<tr class="odd">
+<td>xgb_regressor × fs_cv (12)</td>
+<td style="text-align: right;">137.7 ± 16.9</td>
+<td style="text-align: right;">125%</td>
+<td style="text-align: right;">—</td>
+<td>direct regression</td>
+</tr>
+<tr class="even">
+<td>rsf × fs_all (40)</td>
+<td style="text-align: right;">141.8 ± 31.3</td>
+<td style="text-align: right;">78.0%</td>
+<td style="text-align: right;">195.7</td>
+<td>rank-quantile calibrated</td>
+</tr>
+<tr class="odd">
+<td>ebm_regressor × fs_cv (12)</td>
+<td style="text-align: right;">142.1 ± 14.6</td>
+<td style="text-align: right;">131%</td>
+<td style="text-align: right;">—</td>
+<td>direct regression</td>
+</tr>
+<tr class="even">
+<td>lifelines_cox × fs_cv</td>
+<td style="text-align: right;">151.6 ± 26.9</td>
+<td style="text-align: right;">80%</td>
+<td style="text-align: right;">217.9</td>
+<td>rank-quantile calibrated</td>
+</tr>
+<tr class="odd">
+<td>lifelines_weibull × fs_cv</td>
+<td style="text-align: right;">182.2 ± 49.3</td>
+<td style="text-align: right;">129%</td>
+<td style="text-align: right;">277.6</td>
+<td>direct (predict_median)</td>
+</tr>
+<tr class="even">
+<td>xgb_aft × fs_a_only</td>
+<td style="text-align: right;">208.5 ± 78.5</td>
+<td style="text-align: right;">91%</td>
+<td style="text-align: right;">281.7</td>
+<td>direct (predict cycles)</td>
+</tr>
+<tr class="odd">
+<td>xgb_aft × fs_all</td>
+<td style="text-align: right;">271.5 ± 97.1</td>
+<td style="text-align: right;">135%</td>
+<td style="text-align: right;">426.8</td>
+<td>direct (predict cycles)</td>
+</tr>
+<tr class="even">
+<td>xgb_aft × fs_cv</td>
+<td style="text-align: right;">284.6 ± 249.2</td>
+<td style="text-align: right;">116%</td>
+<td style="text-align: right;">387.2</td>
+<td>direct (predict cycles)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Two striking findings:</strong></p>
+<ol type="1">
+<li><strong><code>rsf × fs_cv</code> wins on MAE <em>and</em>
+MAPE</strong> when its risk score is rank-quantile-calibrated to
+cycle-life. MAE = 132.8 vs regressors' ~136 (a small absolute win), but
+<strong>MAPE = 65% vs regressors' 115–125%</strong> (huge). The MAPE gap
+reflects that regressors heavily over/under-shoot on short-life cells
+(high per-cell relative error), while RSF's rank-quantile mapping yields
+predictions whose per-cell errors stay bounded. <strong>RSF is
+competitive on magnitude prediction, not just rank.</strong></li>
+<li><strong>XGB-AFT's direct predictions are badly
+miscalibrated</strong> (MAE 208–285, ~2× the regressors). The AFT loss
+optimizes log-likelihood under a parametric error distribution, not MAE
+— so even with C-index ≈ 0.77, the absolute magnitudes drift. A
+rank-quantile calibration on XGB-AFT's output would close most of the
+gap.</li>
+</ol>
+<p><strong>Rank-quantile calibration</strong>: for each test fold, sort
+the survival model's risk scores descending and the true cycle lives
+ascending; assign true-life-quantiles to risk-quantiles. This is the
+simplest non-parametric calibration; it preserves rank performance
+(which is RSF's strength) while yielding magnitude predictions on the
+true cycle-life scale.</p>
+<h4 id="regressions-selection-bias-problem-the-q4-issue">Regression's
+selection-bias problem (the Q4 issue)</h4>
+<p>Even the regressors' tied MAE = 136 hides a structural problem:</p>
+<p>Per-quartile breakdown (from Exp A diagnosis):</p>
+<table>
+<thead>
+<tr class="header">
+<th>Quartile of true cycle life</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">MAE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Q1 short (6–~93)</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">92</td>
+</tr>
+<tr class="even">
+<td>Q2 (~93–~310)</td>
+<td style="text-align: right;">46</td>
+<td style="text-align: right;">98</td>
+</tr>
+<tr class="odd">
+<td>Q3 (~310–~524)</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">77</td>
+</tr>
+<tr class="even">
+<td><strong>Q4 long (~524+)</strong></td>
+<td style="text-align: right;"><strong>47</strong></td>
+<td style="text-align: right;"><strong>286</strong> ← 3× worse</td>
+</tr>
+</tbody>
+</table>
+<p>The "43% MAPE" headline is <strong>2× the truth for Q4 cells</strong>
+— the ones where prediction accuracy matters most for warranty and
+production-grade decisions.</p>
+<h4 id="criterion--winner-synthesis">Criterion → winner synthesis</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Criterion</th>
+<th>Winner</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Avg AUC@N (200/300/400)</td>
+<td>xgb_classifier × fs_cv ≈ rsf × fs_cv (tie within 0.002)</td>
+<td>Both ~0.888</td>
+</tr>
+<tr class="even">
+<td>AUC@200 (short horizon, business-critical for early sorting)</td>
+<td><strong>rsf × fs_a_only (0.9360)</strong></td>
+<td>+1.5 pts over next-best</td>
+</tr>
+<tr class="odd">
+<td>C-index (rank, horizon-independent)</td>
+<td><strong>rsf × fs_cv (0.801 ± 0.021)</strong></td>
+<td>The cleanest single-number summary</td>
+</tr>
+<tr class="even">
+<td><strong>MAE on faded cells (rank-quantile cal.)</strong></td>
+<td><strong>rsf × fs_cv (132.8 ± 26.3 cyc)</strong></td>
+<td>Beats regressors AND reuses rank skill</td>
+</tr>
+<tr class="odd">
+<td><strong>MAPE on faded cells (per-cell)</strong></td>
+<td><strong>rsf × fs_cv (64.7%)</strong></td>
+<td>Far below regressors' 115–125%; less tail damage</td>
+</tr>
+<tr class="even">
+<td>Uses censored cells (228 of 415)</td>
+<td><strong>rsf, xgb_aft only</strong></td>
+<td>Regression and classification drop them</td>
+</tr>
+<tr class="odd">
+<td>Single unified predictor across all N</td>
+<td><strong>rsf only</strong></td>
+<td>Classifier needs retraining per N</td>
+</tr>
+</tbody>
+</table>
+<h3 id="headline-recommendation-1">Headline recommendation</h3>
+<p><strong><code>rsf × fs_cv</code></strong> as the unified cycle-life
+model.</p>
+<p>It's the only single model that simultaneously:</p>
+<ol type="1">
+<li>Achieves competitive AUC@N at every horizon (0.928 / 0.874 / 0.858,
+average 0.887 — within 0.002 of the best).</li>
+<li>Has the cleanest summary metric: C-index = <strong>0.801 ±
+0.021</strong> (rank metric matching the natural problem framing,
+horizon-independent).</li>
+<li><strong>Uses all 415 cells</strong> including the 228 right-censored
+ones — solving the selection-bias problem that gives regression its
+misleading 43% MAPE.</li>
+<li>Produces a <strong>single continuous risk score</strong> that's
+threshold-free — no need to retrain at different N.</li>
+<li>Uses the fs_cv 12-feature subset, which Exp D confirmed is
+well-chosen: includes the Tier-A retention anchors AND a curated ~9 of
+the 34 Tier-C features that actually carry signal. (Tier C alone
+collapses RSF to C-index 0.577.)</li>
+</ol>
+<h3 id="deployment-context-variants">Deployment-context variants</h3>
+<ul>
+<li><strong>Short-horizon early sorting at N=200</strong> →
+<code>rsf × fs_a_only</code> (AUC@200 = 0.936; only 3 features for
+ultra-lightweight deployment).</li>
+<li><strong>General cycle-life prediction at unknown horizon</strong> →
+<strong><code>rsf × fs_cv</code></strong>.</li>
+<li><strong>Threshold-based classification (committed to a fixed
+N)</strong> → <code>xgb_classifier × fs_cv</code> (or
+<code>× fs_all</code> pending the follow-up).</li>
+<li><strong>Regression with magnitudes</strong> → don't use for Q4
+long-life cells; the apparent 43% MAPE is ~85% MAPE on those cells.</li>
+</ul>
+<p>The reason RSF wins both questions' <em>spirit</em> but only Q2's
+<em>letter</em> is that <strong>RSF is trained on the right
+task</strong> (survival with censoring) while the classifiers are
+trained on three different binarized projections of the same underlying
+continuous problem.</p>
 <hr />
 <h2 id="methodology">Methodology</h2>
 <h3 id="protocol">Protocol</h3>
