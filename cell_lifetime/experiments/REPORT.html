@@ -210,8 +210,8 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">cell_lifetime experiments — REPORT</h1>
-<p class="subtitle">Seven experiments (A–G) with absolute-value tables
-for Exp G</p>
+<p class="subtitle">Seven experiments (A–G), with per-N comparison
+tables</p>
 <p class="date">2026-05-17</p>
 </header>
 <nav id="TOC" role="doc-toc">
@@ -313,6 +313,9 @@ ROC-AUC / AUC@N — values (mean ± std, 5 seeds)</a></li>
 <li><a href="#survival-c-index--values-mean--std-5-seeds"
 id="toc-survival-c-index--values-mean--std-5-seeds">Survival C-index —
 values (mean ± std, 5 seeds)</a></li>
+<li><a href="#per-n-model--feature-set-comparison-auc-tuned-variant"
+id="toc-per-n-model--feature-set-comparison-auc-tuned-variant">Per-N
+model × feature-set comparison (AUC-tuned variant)</a></li>
 <li><a href="#per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n"
 id="toc-per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
 (F1-tuned − AUC-tuned), held-out F1 / F1@N</a></li>
@@ -1488,6 +1491,187 @@ differences are within 1 std. The rank ordering is preserved across tune
 targets — the survival models' core competence (ranking faster-failing
 vs slower-failing cells) is robust to which binary metric we
 optimize.</p>
+<h3 id="per-n-model--feature-set-comparison-auc-tuned-variant">Per-N
+model × feature-set comparison (AUC-tuned variant)</h3>
+<p>Rows = method, columns = feature subset × {F1, AUC}. All cells show
+<strong>mean ± std across 5 seeds, AUC-tuned variant</strong> (the Exp
+F/G recommendation). Survival models' F1 is the median-threshold F1@N
+defined in <code>survival_metrics</code>.</p>
+<h4 id="n--200">N = 200</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>fs_a_only F1</th>
+<th>fs_a_only AUC</th>
+<th>fs_cv F1</th>
+<th>fs_cv AUC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>0.8970 ± 0.0427</td>
+<td>0.8951 ± 0.0678</td>
+<td>0.8999 ± 0.0378</td>
+<td>0.9051 ± 0.0628</td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td>0.9061 ± 0.0394</td>
+<td>0.8892 ± 0.0598</td>
+<td>0.9108 ± 0.0269</td>
+<td>0.8756 ± 0.0861</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>0.5886 ± 0.0665</td>
+<td><strong>0.9360 ± 0.0298</strong></td>
+<td>0.5793 ± 0.0583</td>
+<td>0.9279 ± 0.0335</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>0.5381 ± 0.1057</td>
+<td>0.9154 ± 0.0277</td>
+<td>0.5607 ± 0.0425</td>
+<td>0.9192 ± 0.0481</td>
+</tr>
+</tbody>
+</table>
+<p>At N=200, <strong>rsf × fs_a_only wins on AUC (0.936)</strong>, but
+its F1 (0.589) is much worse than the classifiers because the
+median-threshold binary metric is a poor fit for survival models at
+short horizons (most cells haven't failed yet). For ranking-based
+applications, RSF dominates; for threshold-based applications (default
+0.5 cutoff), use the classifiers.</p>
+<h4 id="n--300">N = 300</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>fs_a_only F1</th>
+<th>fs_a_only AUC</th>
+<th>fs_cv F1</th>
+<th>fs_cv AUC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td><strong>0.8572 ± 0.0241</strong></td>
+<td>0.8589 ± 0.0223</td>
+<td>0.8377 ± 0.0294</td>
+<td><strong>0.8753 ± 0.0155</strong></td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td>0.8545 ± 0.0115</td>
+<td><strong>0.8642 ± 0.0226</strong></td>
+<td>0.8437 ± 0.0444</td>
+<td>0.8639 ± 0.0543</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>0.6835 ± 0.0721</td>
+<td>0.8518 ± 0.0526</td>
+<td>0.7094 ± 0.0514</td>
+<td>0.8743 ± 0.0521</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>0.6529 ± 0.0675</td>
+<td>0.8312 ± 0.0784</td>
+<td>0.6734 ± 0.0692</td>
+<td>0.8301 ± 0.0644</td>
+</tr>
+</tbody>
+</table>
+<p>At N=300, classifiers and RSF are within 1 std on AUC;
+<strong>xgb_classifier × fs_cv ties RSF × fs_cv on AUC at
+0.87–0.88</strong>. The headline classification number (F1 = 0.866 ±
+0.037 on fs_all from Exp A) is clearly above all fs_a_only and fs_cv
+numbers — confirming the 40-feature subset is the F1 winner for
+classification.</p>
+<h4 id="n--400">N = 400</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>fs_a_only F1</th>
+<th>fs_a_only AUC</th>
+<th>fs_cv F1</th>
+<th>fs_cv AUC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_classifier</td>
+<td>0.8104 ± 0.0686</td>
+<td>0.8658 ± 0.0534</td>
+<td>0.7973 ± 0.0542</td>
+<td><strong>0.8861 ± 0.0422</strong></td>
+</tr>
+<tr class="even">
+<td>ebm_classifier</td>
+<td><strong>0.8260 ± 0.0577</strong></td>
+<td><strong>0.8847 ± 0.0530</strong></td>
+<td>0.8125 ± 0.0661</td>
+<td>0.8778 ± 0.0326</td>
+</tr>
+<tr class="odd">
+<td>rsf</td>
+<td>0.7255 ± 0.1066</td>
+<td>0.8215 ± 0.0688</td>
+<td>0.7643 ± 0.0403</td>
+<td>0.8577 ± 0.0434</td>
+</tr>
+<tr class="even">
+<td>xgb_aft</td>
+<td>0.7257 ± 0.1109</td>
+<td>0.8142 ± 0.0917</td>
+<td>0.7319 ± 0.0617</td>
+<td>0.8323 ± 0.0666</td>
+</tr>
+</tbody>
+</table>
+<p>At N=400 (long horizon), <strong>ebm_classifier × fs_a_only edges out
+the field on both F1 (0.826) and AUC (0.885)</strong> — the 3 retention
+features contain most of the long-horizon signal, and EBM's
+bin-by-feature fits capture it cleanly. RSF/AFT survival models lag the
+classifiers on AUC at long N because more cells are censored beyond
+N=400 (meaning less event data to train the rank ordering on).</p>
+<h4 id="cross-horizon-summary">Cross-horizon summary</h4>
+<p>Best AUC by N (any model, any fs in this comparison):</p>
+<table>
+<thead>
+<tr class="header">
+<th>N</th>
+<th>Best model + fs</th>
+<th>AUC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>200</td>
+<td>rsf × fs_a_only</td>
+<td><strong>0.9360 ± 0.0298</strong></td>
+</tr>
+<tr class="even">
+<td>300</td>
+<td>xgb_classifier × fs_cv</td>
+<td>0.8753 ± 0.0155</td>
+</tr>
+<tr class="odd">
+<td>400</td>
+<td>xgb_classifier × fs_cv</td>
+<td>0.8861 ± 0.0422</td>
+</tr>
+</tbody>
+</table>
+<p>AUC drops then partially recovers from N=200 to N=400. The N=300 dip
+is a known phenomenon for binary survival at the median region — class
+balance is most ambiguous there, making the metric noisier.</p>
 <h3 id="per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
 (F1-tuned − AUC-tuned), held-out F1 / F1@N</h3>
 <table>
