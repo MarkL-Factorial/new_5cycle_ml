@@ -1,7 +1,14 @@
 # cell_lifetime INDEX
 
 Branch: `feature/cell_lifetime`
-Last updated: 2026-05-15T22:00:00Z
+Last updated: 2026-05-18T18:30:00Z
+
+## Project conventions
+
+See [`CONVENTIONS.md`](CONVENTIONS.md) for canonical training sets per
+task. **Classification trains on `trainable_n{N}` (faded ∪ censored
+with `n_regular ≥ N`), not faded-only.** This applies to both the
+`cell-lifetime run` validation pipeline and any production fit.
 
 ## Phase log (append-only)
 

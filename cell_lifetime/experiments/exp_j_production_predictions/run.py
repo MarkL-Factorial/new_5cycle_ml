@@ -2,7 +2,8 @@
 """Exp J — production fit & per-cell predictions.
 
 Trains 4 models on the FULL dataset (no train/test split) and emits
-per-cell predictions for ALL 415 cells:
+per-cell predictions for ALL 415 cells. Training sets follow the
+canonical convention documented in `cell_lifetime/CONVENTIONS.md`:
 
   1. ebm_classifier (N=200) — trained on cells where `trainable_n200=True`
                               (= 187 faded ∪ censored with n_regular≥200),
