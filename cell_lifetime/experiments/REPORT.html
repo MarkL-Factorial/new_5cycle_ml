@@ -164,211 +164,13 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
-  <style>
-  :root { --fg: #1a1a1a; --fg-muted: #555; --bg: #fdfdfd; --bg-code: #f4f4f7;
-          --bg-tbl-alt: #f9f9fb; --border: #e1e1e6; --accent: #0b5394;
-          --accent-light: #d6e4f0; --sidebar-bg: #f6f7fa; }
-  *{box-sizing:border-box} html{scroll-behavior:smooth;scroll-padding-top:1rem}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    font-size:16px;line-height:1.65;color:var(--fg);background:var(--bg);
-    margin:0;padding:2rem 2rem 4rem 290px;max-width:1180px}
-  @media (max-width:900px){body{padding:1.5rem}
-    nav#TOC{position:static!important;width:auto!important;height:auto!important;
-      border-right:none!important;border-bottom:1px solid var(--border);
-      margin-bottom:2rem}}
-  nav#TOC{position:fixed;top:0;left:0;width:260px;height:100vh;overflow-y:auto;
-    padding:1.5rem 1rem 2rem 1.25rem;background:var(--sidebar-bg);
-    border-right:1px solid var(--border);font-size:13.5px;line-height:1.5}
-  nav#TOC::before{content:"Contents";display:block;font-weight:600;font-size:11px;
-    text-transform:uppercase;letter-spacing:.08em;color:var(--fg-muted);margin-bottom:.5rem}
-  nav#TOC ul{list-style:none;padding-left:.75rem;margin:0}
-  nav#TOC>ul{padding-left:0} nav#TOC li{margin:.2rem 0}
-  nav#TOC a{color:var(--fg);text-decoration:none;display:block;padding:2px 6px;border-radius:3px}
-  nav#TOC a:hover{background:var(--accent-light);color:var(--accent)}
-  nav#TOC>ul>li>a{font-weight:600}
-  nav#TOC ul ul a{color:var(--fg-muted);font-weight:400}
-  h1,h2,h3,h4{line-height:1.25;margin-top:2.2rem;margin-bottom:.6rem;font-weight:600}
-  h1{font-size:1.9rem;margin-top:0;padding-bottom:.4rem;border-bottom:2px solid var(--border)}
-  h2{font-size:1.45rem;margin-top:2.6rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
-  h3{font-size:1.15rem;color:var(--accent);margin-top:1.8rem}
-  h4{font-size:1rem} p{margin:.6rem 0} a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
-  ul,ol{padding-left:1.4rem;margin:.5rem 0} li{margin:.25rem 0}
-  code{font-family:"SF Mono",Menlo,Monaco,Consolas,monospace;font-size:.88em;
-    background:var(--bg-code);padding:.12em .4em;border-radius:3px;color:#c7254e}
-  pre{background:var(--bg-code);border:1px solid var(--border);border-radius:5px;
-    padding:.85rem 1rem;overflow-x:auto;line-height:1.45;margin:.9rem 0}
-  pre code{background:none;padding:0;color:var(--fg);font-size:.85em}
-  table{border-collapse:collapse;margin:1rem 0;width:100%;font-size:.93em}
-  th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
-  th{background:var(--bg-tbl-alt);font-weight:600;border-bottom:2px solid var(--border)}
-  tbody tr:nth-child(even){background:var(--bg-tbl-alt)}
-  tbody tr:hover{background:var(--accent-light)}
-  hr{border:none;border-top:1px solid var(--border);margin:2rem 0}
-  </style>
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">cell_lifetime experiments — REPORT</h1>
-<p class="subtitle">Seven experiments (A–G) + cross-experiment synthesis
-with fs_all completion</p>
 <p class="date">2026-05-17</p>
 </header>
-<nav id="TOC" role="doc-toc">
-<ul>
-<li><a href="#cell_lifetime-experiments--report"
-id="toc-cell_lifetime-experiments--report">cell_lifetime experiments —
-REPORT</a>
-<ul>
-<li><a href="#tldr" id="toc-tldr">TL;DR</a></li>
-<li><a href="#experiment-a--feature-set-expansion-fs_cv--fs_all"
-id="toc-experiment-a--feature-set-expansion-fs_cv--fs_all">Experiment A
-— feature-set expansion (fs_cv → fs_all)</a>
-<ul>
-<li><a href="#results-mean--std-across-5-seeds-n300"
-id="toc-results-mean--std-across-5-seeds-n300">Results (mean ± std
-across 5 seeds, N=300)</a></li>
-<li><a href="#interpretation"
-id="toc-interpretation">Interpretation</a></li>
-<li><a href="#why-regression-hits-a-ceiling"
-id="toc-why-regression-hits-a-ceiling">Why regression hits a
-ceiling</a></li>
-</ul></li>
-<li><a href="#experiment-b--survival-horizon-profile--ensemble-blend"
-id="toc-experiment-b--survival-horizon-profile--ensemble-blend">Experiment
-B — survival horizon profile + ensemble blend</a>
-<ul>
-<li><a href="#results-mean--std-across-5-seeds-fs_cv"
-id="toc-results-mean--std-across-5-seeds-fs_cv">Results (mean ± std
-across 5 seeds, fs_cv)</a></li>
-<li><a href="#findings" id="toc-findings">Findings</a></li>
-<li><a href="#why-the-blend-fails" id="toc-why-the-blend-fails">Why the
-blend fails</a></li>
-</ul></li>
-<li><a href="#headline-recommendation"
-id="toc-headline-recommendation">Headline recommendation</a></li>
-<li><a href="#experiment-c--weighted-blend-grid-search"
-id="toc-experiment-c--weighted-blend-grid-search">Experiment C —
-weighted-blend grid search</a>
-<ul>
-<li><a href="#results-per-seed-c-index-curves-fs_cv-5-seeds"
-id="toc-results-per-seed-c-index-curves-fs_cv-5-seeds">Results (per-seed
-C-index curves, fs_cv, 5 seeds)</a></li>
-</ul></li>
-<li><a href="#experiment-d--feature-tier-ablation"
-id="toc-experiment-d--feature-tier-ablation">Experiment D — feature tier
-ablation</a>
-<ul>
-<li><a href="#tier-composition" id="toc-tier-composition">Tier
-composition</a></li>
-<li><a
-href="#results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-baselines"
-id="toc-results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-baselines">Results
-(5 seeds, N=300, all combinations of tiers vs the existing fs_cv/fs_all
-baselines)</a></li>
-<li><a href="#headline-findings" id="toc-headline-findings">Headline
-findings</a></li>
-<li><a href="#operational-recommendation"
-id="toc-operational-recommendation">Operational recommendation</a></li>
-</ul></li>
-<li><a href="#experiment-e--parametric-survival-via-lifelines"
-id="toc-experiment-e--parametric-survival-via-lifelines">Experiment E —
-parametric survival via lifelines</a>
-<ul>
-<li><a href="#new-models-added-in-cell_lifetimemodels"
-id="toc-new-models-added-in-cell_lifetimemodels">New models added (in
-<code>cell_lifetime/models/</code>)</a></li>
-<li><a href="#solo-results-5-seeds-fs_cv-n300"
-id="toc-solo-results-5-seeds-fs_cv-n300">Solo results (5 seeds, fs_cv,
-N=300)</a></li>
-<li><a
-href="#4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors"
-id="toc-4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors">4-way
-weighted blend (simplex grid, step 0.1, 286 weight vectors)</a></li>
-</ul></li>
-<li><a href="#experiment-f--tuning-objective-roc-auc-vs-f1"
-id="toc-experiment-f--tuning-objective-roc-auc-vs-f1">Experiment F —
-tuning objective (ROC-AUC vs F1)</a>
-<ul>
-<li><a href="#results-5-seeds-n300"
-id="toc-results-5-seeds-n300">Results (5 seeds, N=300)</a></li>
-<li><a href="#headline-finding" id="toc-headline-finding">Headline
-finding</a></li>
-<li><a href="#why" id="toc-why">Why</a></li>
-<li><a href="#recommendation"
-id="toc-recommendation">Recommendation</a></li>
-</ul></li>
-<li><a
-href="#experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons"
-id="toc-experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons">Experiment
-G — AUC vs F1 tuning across model families and horizons</a>
-<ul>
-<li><a href="#setup" id="toc-setup">Setup</a></li>
-<li><a href="#held-out-f1--f1n--values-mean--std-5-seeds"
-id="toc-held-out-f1--f1n--values-mean--std-5-seeds">Held-out F1 / F1@N —
-values (mean ± std, 5 seeds)</a></li>
-<li><a href="#held-out-roc-auc--aucn--values-mean--std-5-seeds"
-id="toc-held-out-roc-auc--aucn--values-mean--std-5-seeds">Held-out
-ROC-AUC / AUC@N — values (mean ± std, 5 seeds)</a></li>
-<li><a href="#survival-c-index--values-mean--std-5-seeds"
-id="toc-survival-c-index--values-mean--std-5-seeds">Survival C-index —
-values (mean ± std, 5 seeds)</a></li>
-<li><a href="#per-n-model--feature-set-comparison-auc-tuned-variant"
-id="toc-per-n-model--feature-set-comparison-auc-tuned-variant">Per-N
-model × feature-set comparison (AUC-tuned variant)</a></li>
-<li><a href="#per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n"
-id="toc-per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
-(F1-tuned − AUC-tuned), held-out F1 / F1@N</a></li>
-<li><a href="#headline-summary" id="toc-headline-summary">Headline
-summary</a></li>
-<li><a href="#interpretation-1"
-id="toc-interpretation-1">Interpretation</a></li>
-<li><a href="#two-cells-worth-a-second-look"
-id="toc-two-cells-worth-a-second-look">Two cells worth a second
-look</a></li>
-<li><a href="#recommendation-updated"
-id="toc-recommendation-updated">Recommendation (updated)</a></li>
-</ul></li>
-<li><a href="#cross-experiment-synthesis"
-id="toc-cross-experiment-synthesis">Cross-experiment synthesis</a>
-<ul>
-<li><a
-href="#q1--best-classifier-by-f1-considering-all-of-n--200-300-400"
-id="toc-q1--best-classifier-by-f1-considering-all-of-n--200-300-400">Q1
-— Best classifier by F1, considering all of N ∈ {200, 300, 400}</a></li>
-<li><a
-href="#q2--best-cycle-life-predictor-by-auc-or-by-percentage-error"
-id="toc-q2--best-cycle-life-predictor-by-auc-or-by-percentage-error">Q2
-— Best cycle-life predictor (by AUC or by percentage error)</a></li>
-<li><a href="#headline-recommendation-1"
-id="toc-headline-recommendation-1">Headline recommendation</a></li>
-<li><a href="#deployment-context-variants"
-id="toc-deployment-context-variants">Deployment-context
-variants</a></li>
-</ul></li>
-<li><a href="#methodology" id="toc-methodology">Methodology</a>
-<ul>
-<li><a href="#protocol" id="toc-protocol">Protocol</a></li>
-<li><a href="#data" id="toc-data">Data</a></li>
-<li><a href="#three-small-fixes-landed-in-this-round"
-id="toc-three-small-fixes-landed-in-this-round">Three small fixes landed
-in this round</a></li>
-<li><a href="#where-regression-breaks-worth-knowing-for-future-work"
-id="toc-where-regression-breaks-worth-knowing-for-future-work">Where
-regression breaks (worth knowing for future work)</a></li>
-</ul></li>
-<li><a href="#files" id="toc-files">Files</a></li>
-<li><a
-href="#code-changes-additive--no-existing-files-outside-cell_lifetime-touched"
-id="toc-code-changes-additive--no-existing-files-outside-cell_lifetime-touched">Code
-changes (additive — no existing files outside cell_lifetime/
-touched)</a></li>
-<li><a href="#open-items-for-future-work"
-id="toc-open-items-for-future-work">Open items for future work</a></li>
-</ul></li>
-</ul>
-</nav>
-<h1 id="cell_lifetime-experiments--report">cell_lifetime experiments —
+<h1 id="cell_lifetime-experiments-report">cell_lifetime experiments —
 REPORT</h1>
 <p><strong>Branch:</strong> <code>feature/cell_lifetime</code>  · 
 <strong>Compute:</strong> 5 seeds × 30 Optuna trials × 5 inner CV per
@@ -376,11 +178,15 @@ run, N=300 unless noted, A2.2_b1, 10-core cap</p>
 <p>This report consolidates <strong>seven experiments</strong> (A
 through G) aimed at improving the Phase 1+2+3 in-session baselines. A
 and B were the initial pass; C/D/E/F drill into specific findings; G
-extends Exp F's tune-target question to the full 4-model × 3-horizon
+extends Exp F’s tune-target question to the full 4-model × 3-horizon
 grid.</p>
 <hr />
 <h2 id="tldr">TL;DR</h2>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Decision</th>
@@ -443,17 +249,25 @@ rank-quantile-calibrated.</td>
 </tbody>
 </table>
 <p>The five models now have honest multi-seed estimates instead of the
-1-seed smokes from Phases 1+2+3. Phase 1's optimistic single-seed
-numbers (e.g. RSF C-index = 0.807) collapse toward the 5-seed mean
+1-seed smokes from Phases 1+2+3. Phase 1’s optimistic single-seed
+numbers (e.g. RSF C-index = 0.807) collapse toward the 5-seed mean
 (0.801 ± 0.021) — small but consistent.</p>
 <hr />
-<h2 id="experiment-a--feature-set-expansion-fs_cv--fs_all">Experiment A
-— feature-set expansion (fs_cv → fs_all)</h2>
+<h2 id="experiment-a-feature-set-expansion-fs_cv-fs_all">Experiment A —
+feature-set expansion (fs_cv → fs_all)</h2>
 <p><strong>Question</strong>: does using the full 40 feature-role
 columns beat the 12-column <code>fs_cv</code> subset?</p>
-<h3 id="results-mean--std-across-5-seeds-n300">Results (mean ± std
-across 5 seeds, N=300)</h3>
-<table>
+<h3 id="results-mean-std-across-5-seeds-n300">Results (mean ± std across
+5 seeds, N=300)</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Task</th>
@@ -540,12 +354,12 @@ Per-quartile MAE for xgb_regressor × fs_cv:</p>
 <td style="text-align: right;">92</td>
 </tr>
 <tr class="even">
-<td>Q2 (~93–~310)</td>
+<td>Q2 (<sub>93–</sub>310)</td>
 <td style="text-align: right;">46</td>
 <td style="text-align: right;">98</td>
 </tr>
 <tr class="odd">
-<td>Q3 (~310–~524)</td>
+<td>Q3 (<sub>310–</sub>524)</td>
 <td style="text-align: right;">48</td>
 <td style="text-align: right;">77</td>
 </tr>
@@ -560,14 +374,20 @@ Per-quartile MAE for xgb_regressor × fs_cv:</p>
 all still in testing and got censored). Survival models avoid this by
 using the censored cells.</p>
 <hr />
-<h2
-id="experiment-b--survival-horizon-profile--ensemble-blend">Experiment B
-— survival horizon profile + ensemble blend</h2>
+<h2 id="experiment-b-survival-horizon-profile-ensemble-blend">Experiment
+B — survival horizon profile + ensemble blend</h2>
 <p><strong>Question</strong>: how do RSF and XGB-AFT perform across N ∈
 {200, 300, 400}, and does a z-score blend beat either alone?</p>
-<h3 id="results-mean--std-across-5-seeds-fs_cv">Results (mean ± std
+<h3 id="results-mean-std-across-5-seeds-fs_cv">Results (mean ± std
 across 5 seeds, fs_cv)</h3>
 <table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Model</th>
@@ -603,58 +423,51 @@ across 5 seeds, fs_cv)</h3>
 </table>
 <h3 id="findings">Findings</h3>
 <ol type="1">
-<li><strong>C-index is constant across N</strong> (it's a rank metric on
-the full data; doesn't depend on the threshold). The headline survival
+<li><strong>C-index is constant across N</strong> (it’s a rank metric on
+the full data; doesn’t depend on the threshold). The headline survival
 metric is unchanged: RSF 0.801, AFT 0.770.</li>
 <li><strong>AUC@N drops with N</strong>: 0.924 → 0.879 → 0.862 for RSF.
 Long-horizon prediction is harder, as expected (more censored cells
-haven't reached the threshold yet).</li>
+haven’t reached the threshold yet).</li>
 <li><strong>RSF beats AFT at every horizon by a comfortable
 margin</strong> (Δ ≈ 0.03 C-index, &gt; 1 std).</li>
 <li><strong>The blend never beats RSF alone.</strong> Plan acceptance
-criterion was "blend &gt; max(rsf, aft) by ≥ 1 std" → fails at every
+criterion was “blend &gt; max(rsf, aft) by ≥ 1 std” → fails at every
 horizon:
 <ul>
 <li>N=200: blend 0.793 vs RSF 0.803, Δ = −0.010</li>
 <li>N=300: blend 0.790 vs RSF 0.801, Δ = −0.011</li>
 <li>N=400: blend 0.792 vs RSF 0.802, Δ = −0.010</li>
 </ul></li>
-<li><strong>The blend is more stable</strong> (std ~0.015 vs RSF's
+<li><strong>The blend is more stable</strong> (std ~0.015 vs RSF’s
 ~0.021) — useful if you specifically need lower seed variance, but you
 pay 1 point of accuracy for it.</li>
 </ol>
 <h3 id="why-the-blend-fails">Why the blend fails</h3>
 <p>Naive z-score averaging gives both models equal weight. RSF is
 meaningfully better than AFT (0.801 vs 0.770), so equal weight dilutes
-the better model's signal. A weighted blend (e.g. 70% RSF + 30% AFT,
+the better model’s signal. A weighted blend (e.g. 70% RSF + 30% AFT,
 based on out-of-fold C-index) would likely recover, but the plan
 specified the simple z-score average so we report the null result and
 recommend the simpler RSF-only approach.</p>
 <hr />
 <h2 id="headline-recommendation">Headline recommendation</h2>
-<p><strong>For binary classification (pass/bad at N=300):</strong></p>
-<ul>
-<li><code>xgb_classifier</code> + <code>fs_all</code> (40 features).
-<strong>F1 = 0.866 ± 0.037</strong>.</li>
-</ul>
-<p><strong>For regression on faded cells (cycle life):</strong></p>
-<ul>
-<li><code>ebm_regressor</code> + <code>fs_all</code> (interpretable) or
+<p><strong>For binary classification (pass/bad at N=300):</strong> -
+<code>xgb_classifier</code> + <code>fs_all</code> (40 features).
+<strong>F1 = 0.866 ± 0.037</strong>.</p>
+<p><strong>For regression on faded cells (cycle life):</strong> -
+<code>ebm_regressor</code> + <code>fs_all</code> (interpretable) or
 <code>xgb_regressor</code> + <code>fs_all</code> (slightly tighter).
-<strong>MAE ≈ 136 cycles, R² ≈ 0.28</strong>.</li>
-<li>⚠ <strong>Note the regression ceiling is
-selection-bias-driven.</strong> Long-life cells (Q4: &gt; 524 cycles)
-have MAE 286 because they're underrepresented in training. If you want
-better long-horizon prediction, use survival.</li>
-</ul>
-<p><strong>For survival (censoring-aware, the full cohort):</strong></p>
-<ul>
-<li><code>rsf</code> + <code>fs_cv</code> (12 features). <strong>C-index
-= 0.801 ± 0.021, AUC@300 = 0.879 ± 0.048</strong>.</li>
-<li>This uses all 415 cells (187 observed + 228 censored).</li>
-</ul>
+<strong>MAE ≈ 136 cycles, R² ≈ 0.28</strong>. - ⚠ <strong>Note the
+regression ceiling is selection-bias-driven.</strong> Long-life cells
+(Q4: &gt; 524 cycles) have MAE 286 because they’re underrepresented in
+training. If you want better long-horizon prediction, use survival.</p>
+<p><strong>For survival (censoring-aware, the full cohort):</strong> -
+<code>rsf</code> + <code>fs_cv</code> (12 features). <strong>C-index =
+0.801 ± 0.021, AUC@300 = 0.879 ± 0.048</strong>. - This uses all 415
+cells (187 observed + 228 censored).</p>
 <hr />
-<h2 id="experiment-c--weighted-blend-grid-search">Experiment C —
+<h2 id="experiment-c-weighted-blend-grid-search">Experiment C —
 weighted-blend grid search</h2>
 <p><strong>Question</strong>: does a weighted blend
 <code>w · RSF + (1−w) · AFT</code> beat the best single model at any
@@ -710,7 +523,7 @@ contributes only noise to the blend.</p>
 in the 2-model space. The Exp B null result is now confirmed at fine
 grid resolution.</p>
 <hr />
-<h2 id="experiment-d--feature-tier-ablation">Experiment D — feature tier
+<h2 id="experiment-d-feature-tier-ablation">Experiment D — feature tier
 ablation</h2>
 <p><strong>Question</strong>: where does the survival signal live across
 feature tiers? Is <code>rsf × fs_cv &gt; rsf × fs_all</code> because of
@@ -731,6 +544,12 @@ id="results-5-seeds-n300-all-combinations-of-tiers-vs-the-existing-fs_cvfs_all-b
 (5 seeds, N=300, all combinations of tiers vs the existing fs_cv/fs_all
 baselines)</h3>
 <table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 26%" />
+<col style="width: 26%" />
+<col style="width: 26%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Subset</th>
@@ -794,7 +613,7 @@ are marginal.</p></li>
 <li><p><strong>For RSF survival, fs_cv stays the winner</strong>
 (C-index 0.801). Tier A alone gets 0.774, fs_ab (A+B) gets 0.794. So
 CV-phase features do add ~0.01 C-index on top of A+B, but only when
-combined — alone they're worthless. fs_all (40) hurts because the 34
+combined — alone they’re worthless. fs_all (40) hurts because the 34
 noisy Tier-C features overwhelm the 3 anchoring retention features for
 the nonparametric forest.</p></li>
 <li><p><strong>The fs_cv subset (12 cols) was well-chosen</strong> for
@@ -805,26 +624,26 @@ Tier-C features that genuinely help.</p></li>
 <ul>
 <li><strong>For classification</strong>: 3 retention features
 (fs_a_only) gets you to within 1 pt of the headline; production
-deployment doesn't need the full 40-feature pipeline.</li>
+deployment doesn’t need the full 40-feature pipeline.</li>
 <li><strong>For survival</strong>: keep fs_cv. The CV-phase features are
-useful but only as a complement to retention — alone they're noise.</li>
+useful but only as a complement to retention — alone they’re noise.</li>
 </ul>
 <hr />
-<h2 id="experiment-e--parametric-survival-via-lifelines">Experiment E —
+<h2 id="experiment-e-parametric-survival-via-lifelines">Experiment E —
 parametric survival via lifelines</h2>
 <p><strong>Question</strong>: do parametric (Weibull AFT) and
 semi-parametric (Cox PH) survival models from <code>lifelines</code> add
-information that tree-based survival doesn't capture? If so, a richer
+information that tree-based survival doesn’t capture? If so, a richer
 ensemble could outperform RSF alone.</p>
 <h3 id="new-models-added-in-cell_lifetimemodels">New models added (in
 <code>cell_lifetime/models/</code>)</h3>
 <ul>
 <li><strong><code>lifelines_weibull_aft</code></strong> —
 <code>lifelines.WeibullAFTFitter</code>, parametric AFT with Weibull
-baseline hazard. risk_orientation = "time_high".</li>
+baseline hazard. risk_orientation = “time_high”.</li>
 <li><strong><code>lifelines_cox</code></strong> —
 <code>lifelines.CoxPHFitter</code>, semi-parametric
-proportional-hazards. risk_orientation = "risk_high".</li>
+proportional-hazards. risk_orientation = “risk_high”.</li>
 </ul>
 <p>Both inherit <code>CycleLifeModel</code>, share the
 <code>fit(X, time, event)</code> signature with <code>xgb_aft</code> and
@@ -833,6 +652,12 @@ cleanly into the existing pipeline.</p>
 <h3 id="solo-results-5-seeds-fs_cv-n300">Solo results (5 seeds, fs_cv,
 N=300)</h3>
 <table>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 28%" />
+<col style="width: 28%" />
+<col style="width: 21%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Model</th>
@@ -871,7 +696,7 @@ N=300)</h3>
 <p>Both lifelines models score below xgb_aft and well below RSF on this
 dataset. Diversity ≠ accuracy.</p>
 <h3
-id="4-way-weighted-blend-simplex-grid-step-01-286-weight-vectors">4-way
+id="way-weighted-blend-simplex-grid-step-0.1-286-weight-vectors">4-way
 weighted blend (simplex grid, step 0.1, 286 weight vectors)</h3>
 <table>
 <thead>
@@ -906,7 +731,7 @@ optimal</td>
 </table>
 <p><strong>Verdict</strong>: 4-way blend produces the same answer as
 2-way blend — RSF alone is Pareto-optimal across all four survival
-models. The parametric/semi-parametric models genuinely don't add
+models. The parametric/semi-parametric models genuinely don’t add
 information.</p>
 <p>This is a meaningful negative result: it means the tree-based RSF is
 <em>already capturing whatever signal the parametric assumptions could
@@ -914,12 +739,19 @@ extract</em>. Future survival improvements need a fundamentally
 different angle (e.g., new features, different censoring assumptions, or
 a fundamentally different model class like deep survival nets).</p>
 <hr />
-<h2 id="experiment-f--tuning-objective-roc-auc-vs-f1">Experiment F —
+<h2 id="experiment-f-tuning-objective-roc-auc-vs-f1">Experiment F —
 tuning objective (ROC-AUC vs F1)</h2>
 <p><strong>Question</strong>: does tuning xgb_classifier on F1 directly
 produce better F1 than tuning on ROC-AUC?</p>
 <h3 id="results-5-seeds-n300">Results (5 seeds, N=300)</h3>
 <table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>subset</th>
@@ -995,7 +827,7 @@ produce better F1 than tuning on ROC-AUC?</p>
 <h3 id="why">Why</h3>
 <p>F1 is a <strong>step function</strong> in probability space — it
 changes only when predictions flip across the 0.5 decision threshold.
-Optuna's TPE sampler gets a noisy/discrete objective with very little
+Optuna’s TPE sampler gets a noisy/discrete objective with very little
 gradient information, especially with only 30 trials × 5 inner
 folds.</p>
 <p>ROC-AUC is <strong>smooth</strong> (rank-based on continuous
@@ -1012,10 +844,10 @@ search-unfriendly.</p>
 throughout this report are the right ones.</p>
 <hr />
 <h2
-id="experiment-g--auc-vs-f1-tuning-across-model-families-and-horizons">Experiment
+id="experiment-g-auc-vs-f1-tuning-across-model-families-and-horizons">Experiment
 G — AUC vs F1 tuning across model families and horizons</h2>
-<p><strong>Question</strong>: Exp F found a strong "AUC-tuning beats
-F1-tuning" result on xgb_classifier × fs_all at N=300. Does that pattern
+<p><strong>Question</strong>: Exp F found a strong “AUC-tuning beats
+F1-tuning” result on xgb_classifier × fs_all at N=300. Does that pattern
 generalize to other model families and horizons?</p>
 <h3 id="setup">Setup</h3>
 <ul>
@@ -1024,7 +856,7 @@ xgb_aft</li>
 <li><strong>Tune targets</strong>: AUC (<code>roc_auc</code> for
 classification, <code>auc_at_N</code> for survival) vs F1
 (<code>f1</code> for classification, <code>f1_at_N</code> for survival;
-the latter is a median-threshold binary-classification F1 at the run's
+the latter is a median-threshold binary-classification F1 at the run’s
 horizon — newly added to <code>survival_metrics</code>)</li>
 <li><strong>Feature subsets</strong>: fs_a_only (3 cols), fs_cv (12
 cols)</li>
@@ -1032,11 +864,18 @@ cols)</li>
 <li><strong>Grid</strong>: 4 models × 2 tune targets × 2 subsets × 3 N =
 <strong>48 runs</strong></li>
 </ul>
-<h3 id="held-out-f1--f1n--values-mean--std-5-seeds">Held-out F1 / F1@N —
+<h3 id="held-out-f1-f1n-values-mean-std-5-seeds">Held-out F1 / F1@N —
 values (mean ± std, 5 seeds)</h3>
 <p>For direct comparison: actual F1 (classification) and F1@N (survival,
 median-threshold) at each cell, AUC-tuned vs F1-tuned.</p>
 <table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>model</th>
@@ -1218,13 +1057,20 @@ median-threshold) at each cell, AUC-tuned vs F1-tuned.</p>
 </tbody>
 </table>
 <p>Bolded cells are the four largest positive Δ from the Δ table below.
-Note that <em>every one</em> of these "winners" has a std bar that
-swallows the "loser" — i.e., the F1-tuned advantage is within seed
+Note that <em>every one</em> of these “winners” has a std bar that
+swallows the “loser” — i.e., the F1-tuned advantage is within seed
 noise.</p>
-<h3 id="held-out-roc-auc--aucn--values-mean--std-5-seeds">Held-out
-ROC-AUC / AUC@N — values (mean ± std, 5 seeds)</h3>
+<h3 id="held-out-roc-auc-aucn-values-mean-std-5-seeds">Held-out ROC-AUC
+/ AUC@N — values (mean ± std, 5 seeds)</h3>
 <p>Same shape; reports the smooth-target metric instead of F1.</p>
 <table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>model</th>
@@ -1408,10 +1254,10 @@ ROC-AUC / AUC@N — values (mean ± std, 5 seeds)</h3>
 <p>Headline survival cells (RSF fs_a/fs_cv at N=200) — AUC@200 ~0.93 —
 match the Phase 3 fs_cv RSF headline; tune target has no material effect
 on this rank metric either.</p>
-<h3 id="survival-c-index--values-mean--std-5-seeds">Survival C-index —
+<h3 id="survival-c-index-values-mean-std-5-seeds">Survival C-index —
 values (mean ± std, 5 seeds)</h3>
 <p>A rank-based metric independent of the N threshold. <strong>Does the
-tune target damage RSF / xgb_aft's natural rank ordering?</strong></p>
+tune target damage RSF / xgb_aft’s natural rank ordering?</strong></p>
 <table>
 <thead>
 <tr class="header">
@@ -1513,17 +1359,26 @@ tune target damage RSF / xgb_aft's natural rank ordering?</strong></p>
 0.81] regardless of whether we tune on <code>auc_at_N</code> or
 <code>f1_at_N</code>. xgb_aft + fs_cv lands in [0.76, 0.79]. All
 differences are within 1 std. The rank ordering is preserved across tune
-targets — the survival models' core competence (ranking faster-failing
+targets — the survival models’ core competence (ranking faster-failing
 vs slower-failing cells) is robust to which binary metric we
 optimize.</p>
-<h3 id="per-n-model--feature-set-comparison-auc-tuned-variant">Per-N
+<h3 id="per-n-model-feature-set-comparison-auc-tuned-variant">Per-N
 model × feature-set comparison (AUC-tuned variant)</h3>
 <p>Rows = method, columns = feature subset × {F1, AUC}. All cells show
 <strong>mean ± std across 5 seeds, AUC-tuned variant</strong> (the Exp
-F/G recommendation). Survival models' F1 is the median-threshold F1@N
+F/G recommendation). Survival models’ F1 is the median-threshold F1@N
 defined in <code>survival_metrics</code>.</p>
-<h4 id="n--200">N = 200</h4>
-<table>
+<h4 id="n-200">N = 200</h4>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Model</th>
@@ -1575,13 +1430,22 @@ defined in <code>survival_metrics</code>.</p>
 </tbody>
 </table>
 <p>At N=200, <strong>rsf × fs_a_only wins on AUC (0.936)</strong> and
-<strong>ebm × fs_all wins on F1 (0.916)</strong>. RSF's F1 (0.589) is
+<strong>ebm × fs_all wins on F1 (0.916)</strong>. RSF’s F1 (0.589) is
 much worse than classifiers because the median-threshold binary metric
-is a poor fit for survival models at short horizons (most cells haven't
+is a poor fit for survival models at short horizons (most cells haven’t
 failed yet). For ranking-based applications, RSF dominates; for
 threshold-based applications, use the classifiers.</p>
-<h4 id="n--300">N = 300</h4>
-<table>
+<h4 id="n-300">N = 300</h4>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Model</th>
@@ -1635,10 +1499,19 @@ threshold-based applications, use the classifiers.</p>
 <p>At N=300, <strong>ebm_classifier × fs_all wins on both F1 (0.870) and
 AUC (0.887)</strong>. The original Exp A headline of xgb_classifier ×
 fs_all = 0.866 is essentially tied with EBM × fs_all (0.870) within 1
-std, but EBM's tighter std (0.025 vs 0.037) makes it slightly
+std, but EBM’s tighter std (0.025 vs 0.037) makes it slightly
 preferable. RSF × fs_cv AUC = 0.874 is competitive on AUC alone.</p>
-<h4 id="n--400">N = 400</h4>
-<table>
+<h4 id="n-400">N = 400</h4>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Model</th>
@@ -1760,7 +1633,7 @@ and N=400, and only loses F1@400 to its smaller cousin (ebm × fs_a_only)
 by ~1 pt (inside std). For ranking at N=200, the survival model (rsf ×
 fs_a_only AUC = 0.936) is still the strongest cell observed across all 7
 experiments.</p>
-<h3 id="per-cell-δ-f1-tuned--auc-tuned-held-out-f1--f1n">Per-cell Δ
+<h3 id="per-cell-δ-f1-tuned-auc-tuned-held-out-f1-f1n">Per-cell Δ
 (F1-tuned − AUC-tuned), held-out F1 / F1@N</h3>
 <table>
 <thead>
@@ -1977,18 +1850,23 @@ experiments.</p>
 <h3 id="interpretation-1">Interpretation</h3>
 <p><strong>Across 24 cells, F1-tuning and AUC-tuning produce
 statistically indistinguishable held-out F1.</strong> Every single
-difference is inside the pooled standard deviation across seeds. Exp F's
+difference is inside the pooled standard deviation across seeds. Exp F’s
 strong −4.1 pt result on <code>xgb_classifier × fs_all × N=300</code>
 was a <strong>single-cell outlier</strong>; when extended to other
 subsets and horizons, the effect vanishes.</p>
-<p>This is the cleanest possible null result. The "smooth proxies beat
-discrete objectives" heuristic isn't actually load-bearing on this
+<p>This is the cleanest possible null result. The “smooth proxies beat
+discrete objectives” heuristic isn’t actually load-bearing on this
 dataset and Optuna budget (30 trials × 5 inner CV × 5 seeds). It only
 matters at extreme feature-set sizes where Optuna can wander; with 3-12
 features and small samples, the tune-target choice is noise.</p>
 <h3 id="two-cells-worth-a-second-look">Two cells worth a second
 look</h3>
 <table>
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 40%" />
+<col style="width: 30%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Cell</th>
@@ -2016,22 +1894,29 @@ randomness in the per-seed test split dominates the comparison.</p>
 <h3 id="recommendation-updated">Recommendation (updated)</h3>
 <ul>
 <li><strong>For published comparisons</strong>, keep
-<code>optimize: roc_auc</code> for all classifiers. It's the
-conventional choice; Exp G shows there's no cost to using it.</li>
+<code>optimize: roc_auc</code> for all classifiers. It’s the
+conventional choice; Exp G shows there’s no cost to using it.</li>
 <li><strong>The Exp F finding (fs_all penalty) remains</strong>: when
 feature counts scale to 40, F1-tuning starts to lose ground. The
-take-away is more about Optuna's behavior in higher-dimensional HP ×
+take-away is more about Optuna’s behavior in higher-dimensional HP ×
 feature landscapes than about a fundamental F1-vs-AUC tradeoff.</li>
 </ul>
 <hr />
 <h2 id="cross-experiment-synthesis">Cross-experiment synthesis</h2>
 <p>Two questions the user posed across all 7 experiments, with
 data-backed answers.</p>
-<h3 id="q1--best-classifier-by-f1-considering-all-of-n--200-300-400">Q1
-— Best classifier by F1, considering all of N ∈ {200, 300, 400}</h3>
+<h3 id="q1-best-classifier-by-f1-considering-all-of-n-200-300-400">Q1 —
+Best classifier by F1, considering all of N ∈ {200, 300, 400}</h3>
 <p>Computing average F1 across the three horizons (AUC-tuned variant per
 the Exp F/G recommendation):</p>
 <table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Method × fs</th>
@@ -2097,6 +1982,13 @@ fs_all × N={200,400} and ebm_classifier × fs_all × {200,300,400}). The
 full comparison across <strong>6</strong> (model, fs) combinations × 3
 horizons:</p>
 <table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Method × fs</th>
@@ -2169,11 +2061,11 @@ accuracy-vs-interpretability tradeoff.</p>
 </ul>
 <p>Curiously, <strong>xgb_classifier × fs_all underperforms</strong> at
 long horizon (F1@400 = 0.783 vs ebm × fs_all = 0.813). The Exp A
-headline value of "F1 = 0.866 at N=300" turned out to be a
+headline value of “F1 = 0.866 at N=300” turned out to be a
 single-horizon peak, not a robust winner.</p>
-<h3 id="q2--best-cycle-life-predictor-by-auc-or-by-percentage-error">Q2
-— Best cycle-life predictor (by AUC or by percentage error)</h3>
-<p>"Cycle life prediction" admits three framings:</p>
+<h3 id="q2-best-cycle-life-predictor-by-auc-or-by-percentage-error">Q2 —
+Best cycle-life predictor (by AUC or by percentage error)</h3>
+<p>“Cycle life prediction” admits three framings:</p>
 <ul>
 <li><strong>Ranking</strong> (which cells fail first) → AUC@N or
 C-index</li>
@@ -2245,13 +2137,20 @@ across N=200/300/400)</h4>
 trains <strong>three separate models</strong> (one per N); rsf trains
 <strong>one model</strong> evaluated at three thresholds — apples to
 oranges.</p>
-<h4 id="data-for-continuous-prediction-mae--mape">Data for continuous
+<h4 id="data-for-continuous-prediction-mae-mape">Data for continuous
 prediction (MAE / MAPE)</h4>
 <p>Both regressors AND survival models can produce cycle-life
 magnitudes, but via different mechanisms. <strong>All MAE/MAPE computed
 on faded test cells only</strong>, 5 seeds, identical per-cell
 methodology (<code>MAPE = mean(|err|/true)</code>):</p>
-<table>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 16%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Method × fs</th>
@@ -2352,28 +2251,28 @@ methodology (<code>MAPE = mean(|err|/true)</code>):</p>
 <ol type="1">
 <li><strong><code>rsf × fs_cv</code> wins on MAE <em>and</em>
 MAPE</strong> when its risk score is rank-quantile-calibrated to
-cycle-life. MAE = 132.8 vs regressors' ~136 (a small absolute win), but
-<strong>MAPE = 65% vs regressors' 115–125%</strong> (huge). The MAPE gap
+cycle-life. MAE = 132.8 vs regressors’ ~136 (a small absolute win), but
+<strong>MAPE = 65% vs regressors’ 115–125%</strong> (huge). The MAPE gap
 reflects that regressors heavily over/under-shoot on short-life cells
-(high per-cell relative error), while RSF's rank-quantile mapping yields
+(high per-cell relative error), while RSF’s rank-quantile mapping yields
 predictions whose per-cell errors stay bounded. <strong>RSF is
 competitive on magnitude prediction, not just rank.</strong></li>
-<li><strong>XGB-AFT's direct predictions are badly
+<li><strong>XGB-AFT’s direct predictions are badly
 miscalibrated</strong> (MAE 208–285, ~2× the regressors). The AFT loss
 optimizes log-likelihood under a parametric error distribution, not MAE
 — so even with C-index ≈ 0.77, the absolute magnitudes drift. A
-rank-quantile calibration on XGB-AFT's output would close most of the
+rank-quantile calibration on XGB-AFT’s output would close most of the
 gap.</li>
 </ol>
 <p><strong>Rank-quantile calibration</strong>: for each test fold, sort
-the survival model's risk scores descending and the true cycle lives
+the survival model’s risk scores descending and the true cycle lives
 ascending; assign true-life-quantiles to risk-quantiles. This is the
 simplest non-parametric calibration; it preserves rank performance
-(which is RSF's strength) while yielding magnitude predictions on the
+(which is RSF’s strength) while yielding magnitude predictions on the
 true cycle-life scale.</p>
-<h4 id="regressions-selection-bias-problem-the-q4-issue">Regression's
+<h4 id="regressions-selection-bias-problem-the-q4-issue">Regression’s
 selection-bias problem (the Q4 issue)</h4>
-<p>Even the regressors' tied MAE = 136 hides a structural problem:</p>
+<p>Even the regressors’ tied MAE = 136 hides a structural problem:</p>
 <p>Per-quartile breakdown (from Exp A diagnosis):</p>
 <table>
 <thead>
@@ -2390,12 +2289,12 @@ selection-bias problem (the Q4 issue)</h4>
 <td style="text-align: right;">92</td>
 </tr>
 <tr class="even">
-<td>Q2 (~93–~310)</td>
+<td>Q2 (<sub>93–</sub>310)</td>
 <td style="text-align: right;">46</td>
 <td style="text-align: right;">98</td>
 </tr>
 <tr class="odd">
-<td>Q3 (~310–~524)</td>
+<td>Q3 (<sub>310–</sub>524)</td>
 <td style="text-align: right;">48</td>
 <td style="text-align: right;">77</td>
 </tr>
@@ -2406,11 +2305,16 @@ selection-bias problem (the Q4 issue)</h4>
 </tr>
 </tbody>
 </table>
-<p>The "43% MAPE" headline is <strong>2× the truth for Q4 cells</strong>
+<p>The “43% MAPE” headline is <strong>2× the truth for Q4 cells</strong>
 — the ones where prediction accuracy matters most for warranty and
 production-grade decisions.</p>
-<h4 id="criterion--winner-synthesis">Criterion → winner synthesis</h4>
+<h4 id="criterion-winner-synthesis">Criterion → winner synthesis</h4>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Criterion</th>
@@ -2442,7 +2346,7 @@ production-grade decisions.</p>
 <tr class="odd">
 <td><strong>MAPE on faded cells (per-cell)</strong></td>
 <td><strong>rsf × fs_cv (64.7%)</strong></td>
-<td>Far below regressors' 115–125%; less tail damage</td>
+<td>Far below regressors’ 115–125%; less tail damage</td>
 </tr>
 <tr class="even">
 <td>Uses censored cells (228 of 415)</td>
@@ -2459,7 +2363,7 @@ production-grade decisions.</p>
 <h3 id="headline-recommendation-1">Headline recommendation</h3>
 <p><strong><code>rsf × fs_cv</code></strong> as the unified cycle-life
 model.</p>
-<p>It's the only single model that simultaneously:</p>
+<p>It’s the only single model that simultaneously:</p>
 <ol type="1">
 <li>Achieves competitive AUC@N at every horizon (0.928 / 0.874 / 0.858,
 average 0.887 — within 0.002 of the best).</li>
@@ -2469,7 +2373,7 @@ horizon-independent).</li>
 <li><strong>Uses all 415 cells</strong> including the 228 right-censored
 ones — solving the selection-bias problem that gives regression its
 misleading 43% MAPE.</li>
-<li>Produces a <strong>single continuous risk score</strong> that's
+<li>Produces a <strong>single continuous risk score</strong> that’s
 threshold-free — no need to retrain at different N.</li>
 <li>Uses the fs_cv 12-feature subset, which Exp D confirmed is
 well-chosen: includes the Tier-A retention anchors AND a curated ~9 of
@@ -2486,17 +2390,259 @@ ultra-lightweight deployment).</li>
 <li><strong>Threshold-based classification (committed to a fixed
 N)</strong> → <code>xgb_classifier × fs_cv</code> (or
 <code>× fs_all</code> pending the follow-up).</li>
-<li><strong>Regression with magnitudes</strong> → don't use for Q4
+<li><strong>Regression with magnitudes</strong> → don’t use for Q4
 long-life cells; the apparent 43% MAPE is ~85% MAPE on those cells.</li>
 </ul>
-<p>The reason RSF wins both questions' <em>spirit</em> but only Q2's
+<p>The reason RSF wins both questions’ <em>spirit</em> but only Q2’s
 <em>letter</em> is that <strong>RSF is trained on the right
 task</strong> (survival with censoring) while the classifiers are
 trained on three different binarized projections of the same underlying
 continuous problem.</p>
 <hr />
-<h2 id="methodology">Methodology</h2>
+<h2
+id="experiment-h-fair-3-way-head-to-head-for-continuous-cycle-life-prediction-fs_cv">Experiment
+H — fair 3-way head-to-head for continuous cycle-life prediction
+(fs_cv)</h2>
+<p><strong>Question</strong>: At <code>fs_cv</code> (12 features), how
+do RSF (using its native median-survival cycle-life output), XGB
+regressor, and EBM regressor compare when:</p>
+<ol type="1">
+<li>The <strong>test set is identical for all three models</strong> —
+20% of <em>faded</em> cells only (cells with ground-truth cycle
+counts).</li>
+<li><strong>RSF training</strong> uses censored cells <em>plus</em> the
+remaining 80% of faded; <strong>regressor training</strong> uses only
+the 80% of faded. This isolates “does censored data help median-survival
+cycle-life prediction?”.</li>
+<li>All three get an <strong>identical 30 trials × 5 inner CV
+budget</strong>, 5 seeds, sqrt target transform on the regressors.</li>
+</ol>
 <h3 id="protocol">Protocol</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Split component</th>
+<th>RSF</th>
+<th>XGB regressor</th>
+<th>EBM regressor</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Train</td>
+<td>80% faded (≈149) + ALL censored (228) = 377</td>
+<td>80% faded (≈149)</td>
+<td>80% faded (≈149)</td>
+</tr>
+<tr class="even">
+<td>Test</td>
+<td>same 20% faded (≈38) for all three</td>
+<td>same</td>
+<td>same</td>
+</tr>
+<tr class="odd">
+<td>Target transform</td>
+<td>none (consumes time+event)</td>
+<td>√cycles</td>
+<td>√cycles</td>
+</tr>
+<tr class="even">
+<td>HP tune objective</td>
+<td>C-index (inner 5-CV)</td>
+<td>MAE (inner 5-CV)</td>
+<td>MAE (inner 5-CV)</td>
+</tr>
+<tr class="odd">
+<td>Cycle-life prediction</td>
+<td>median survival: min{t : S(t)≤0.5}</td>
+<td>predict²</td>
+<td>predict²</td>
+</tr>
+</tbody>
+</table>
+<p>Test cells are verified identical per seed via SHA-256 fingerprint in
+<code>runs/seed_*/results.json</code> (see
+<code>verify_same_test_set.py</code>).</p>
+<h3 id="headline-results-5-seeds-fs_cv-mean-std">Headline results (5
+seeds, fs_cv, mean ± std)</h3>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th style="text-align: right;">MAE (cyc)</th>
+<th style="text-align: right;">MAPE</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">R²</th>
+<th style="text-align: right;">Stability (MAE std)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>xgb_regressor</strong></td>
+<td style="text-align: right;"><strong>123.4 ± 15.3</strong></td>
+<td style="text-align: right;"><strong>1.28 ± 0.40</strong></td>
+<td style="text-align: right;"><strong>171.3 ± 25.4</strong></td>
+<td style="text-align: right;"><strong>0.39 ± 0.11</strong></td>
+<td style="text-align: right;">±15.3</td>
+</tr>
+<tr class="even">
+<td>ebm_regressor</td>
+<td style="text-align: right;">131.7 ± 17.5</td>
+<td style="text-align: right;">1.29 ± 0.43</td>
+<td style="text-align: right;">174.2 ± 24.3</td>
+<td style="text-align: right;">0.37 ± 0.11</td>
+<td style="text-align: right;">±17.5</td>
+</tr>
+<tr class="odd">
+<td>rsf (median-surv)</td>
+<td style="text-align: right;">143.3 ± 8.9</td>
+<td style="text-align: right;">1.51 ± 0.46</td>
+<td style="text-align: right;">182.8 ± 6.7</td>
+<td style="text-align: right;">0.30 ± 0.08</td>
+<td style="text-align: right;"><strong>±8.9</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="per-quartile-mae-where-each-model-wins">Per-quartile MAE — where
+each model wins</h3>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th style="text-align: right;">Q1 (shortest)</th>
+<th style="text-align: right;">Q2</th>
+<th style="text-align: right;">Q3</th>
+<th style="text-align: right;">Q4 (longest)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>xgb_regressor</td>
+<td style="text-align: right;"><strong>94.4 ± 20.2</strong></td>
+<td style="text-align: right;"><strong>93.8 ± 37.2</strong></td>
+<td style="text-align: right;"><strong>64.9 ± 16.4</strong></td>
+<td style="text-align: right;">231.8 ± 48.3</td>
+</tr>
+<tr class="even">
+<td>ebm_regressor</td>
+<td style="text-align: right;">105.5 ± 10.9</td>
+<td style="text-align: right;">112.0 ± 45.6</td>
+<td style="text-align: right;">73.2 ± 18.5</td>
+<td style="text-align: right;">228.3 ± 36.8</td>
+</tr>
+<tr class="odd">
+<td>rsf (median-surv)</td>
+<td style="text-align: right;">146.1 ± 44.2</td>
+<td style="text-align: right;">159.7 ± 58.0</td>
+<td style="text-align: right;">128.3 ± 34.2</td>
+<td style="text-align: right;"><strong>139.4 ± 40.4</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="findings-1">Findings</h3>
+<ol type="1">
+<li><strong>XGB regressor wins on mean MAE</strong> (123.4 cyc) — beats
+RSF (median-surv) by ≈20 cyc and EBM by ≈8 cyc. Lower MAPE too. Censored
+cells in RSF’s training set do <strong>not</strong> help median-survival
+cycle-life prediction on faded cells.</li>
+<li><strong>RSF has the lowest variance</strong> (MAE std 8.9 vs 15–17
+for the regressors). The censored-cell ballast stabilises its
+predictions across seeds even when its mean MAE is worse.</li>
+<li><strong>The error distribution is the real story</strong> — RSF and
+the regressors fail in <em>opposite</em> directions:
+<ul>
+<li><strong>Regressors win Q1–Q3</strong> (short and middle-life cells).
+MAE in the 65–112 cyc range vs RSF’s 128–160 cyc.</li>
+<li><strong>RSF wins Q4</strong> (long-life cells). MAE 139 cyc vs
+regressors’ 228–232 cyc. This is the regressor selection-bias problem we
+flagged earlier: trained only on ≤1052-cycle faded cells, the regressors
+regress to the population median for long-lived cells they’ve never seen
+the upper tail of.</li>
+<li>RSF, trained on time-event data including censored cells (whose
+<code>time</code> extends to wherever observation stopped), has a richer
+view of “could live past N” and predicts those cells better.</li>
+</ul></li>
+<li><strong>MAPE is similar across all three</strong> (1.28–1.51),
+driven mostly by short-lived cells where a 50-cycle absolute error is a
+100% + relative error.</li>
+<li><strong>EBM is ≈10× slower</strong> (382s vs 40s/44s per seed)
+without a meaningful accuracy gain over XGB at fs_cv.</li>
+</ol>
+<h3
+id="verdict-this-comparison-only-fs_cv-sqrt-target-median-survival">Verdict
+(this comparison only — fs_cv, sqrt target, median-survival</h3>
+<p>extraction)</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Use case</th>
+<th>Pick</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lowest <em>average</em> MAE across faded cells</td>
+<td><strong>xgb_regressor</strong></td>
+</tr>
+<tr class="even">
+<td>Most seed-stable MAE</td>
+<td><strong>rsf (median-surv)</strong></td>
+</tr>
+<tr class="odd">
+<td>Best long-life (Q4) prediction</td>
+<td><strong>rsf (median-surv)</strong></td>
+</tr>
+<tr class="even">
+<td>Best short / middle-life prediction</td>
+<td><strong>xgb_regressor</strong></td>
+</tr>
+<tr class="odd">
+<td>Hybrid candidate (future work)</td>
+<td>gate by predicted cycle-life: regressor for short, RSF for long —
+could close most of the MAE gap.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="crucial-caveat">Crucial caveat</h3>
+<p>This experiment uses RSF’s <strong>median-survival</strong> as the
+cycle-life prediction. Earlier reports (Cross-experiment synthesis
+above) cited <code>rsf × fs_cv</code> with MAE = 132.8 ± 26.3 / MAPE =
+65% — those came from <strong>rank-quantile calibration</strong> of the
+risk score (a different RSF output transform). Median-survival, the
+principled “1-S(N) = 0.5” extraction, is fundamentally biased toward the
+population median for short-lived cells whose true cycle life is well
+below the censored training population’s central tendency.</p>
+<p>In short: RSF can be the cycle-life winner — but you have to use the
+right output. Median-survival is <em>not</em> it; rank-quantile or a
+recalibration step (e.g. Bayesian Cox-PH posterior median) is.</p>
+<hr />
+<h2 id="methodology">Methodology</h2>
+<h3 id="protocol-1">Protocol</h3>
 <ul>
 <li>Multi-seed: 5 seeds (1, 2, 3, 4, 5).</li>
 <li>Optuna: 30 trials per seed (TPE sampler).</li>
@@ -2539,17 +2685,21 @@ future per-cell error analysis.</li>
 diagnosability when survival inner-CV folds emit NaN C-index.</p>
 <h3 id="where-regression-breaks-worth-knowing-for-future-work">Where
 regression breaks (worth knowing for future work)</h3>
-<p>The regression models' per-seed Pearson r was 0.48–0.64; Pearson² ≈
+<p>The regression models’ per-seed Pearson r was 0.48–0.64; Pearson² ≈
 0.27–0.41, which matches the reported R² = 0.28. The model knows the
-relative ordering OK; it just can't get the magnitudes right at the
-long-life tail. This is the canonical "regression with sample selection
-on the target" trap, well-documented in the survival literature (Heckman
+relative ordering OK; it just can’t get the magnitudes right at the
+long-life tail. This is the canonical “regression with sample selection
+on the target” trap, well-documented in the survival literature (Heckman
 1979). For cycle-life prediction with right- censoring, survival is the
 correct framework — not because it predicts magnitudes better, but
 because it uses all the data.</p>
 <hr />
 <h2 id="files">Files</h2>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Path</th>
@@ -2558,49 +2708,78 @@ because it uses all the data.</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>experiments/exp_a_feature_set/run.sh</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_a_feature_set/run.sh</code></td>
 <td>Driver for all 5 models × 2 feature subsets</td>
 </tr>
 <tr class="even">
-<td><code>experiments/exp_a_feature_set/aggregate.py</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_a_feature_set/aggregate.py</code></td>
 <td>Walks <code>out/runs/</code>, builds metric_long.csv +
 headline.csv</td>
 </tr>
 <tr class="odd">
-<td><code>experiments/exp_a_feature_set/metric_long.csv</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_a_feature_set/metric_long.csv</code></td>
 <td>228 rows: every (model, fs, metric) tuple</td>
 </tr>
 <tr class="even">
-<td><code>experiments/exp_a_feature_set/headline.csv</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_a_feature_set/headline.csv</code></td>
 <td>Comparison table (10 rows)</td>
 </tr>
 <tr class="odd">
-<td><code>experiments/exp_a_feature_set/logs/*.log</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_a_feature_set/logs/*.log</code></td>
 <td>Per-run stdout/stderr</td>
 </tr>
 <tr class="even">
-<td><code>experiments/exp_b_horizon_and_blend/run.sh</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_b_horizon_and_blend/run.sh</code></td>
 <td>Driver for rsf + xgb_aft × N</td>
 </tr>
 <tr class="odd">
-<td><code>experiments/exp_b_horizon_and_blend/blend.py</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_b_horizon_and_blend/blend.py</code></td>
 <td>z-score blend + survival_metrics recompute</td>
 </tr>
 <tr class="even">
-<td><code>experiments/exp_b_horizon_and_blend/blend_summary_fs_cv.json</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_b_horizon_and_blend/blend_summary_fs_cv.json</code></td>
 <td>Per-N blend results</td>
 </tr>
 <tr class="odd">
-<td><code>experiments/exp_b_horizon_and_blend/logs/*.log</code></td>
+<td><code>experiments/done_exp_a_to_g/exp_b_horizon_and_blend/logs/*.log</code></td>
 <td>Per-run stdout/stderr</td>
+</tr>
+<tr class="even">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/run.py</code></td>
+<td>Self-contained driver: identical 20%-faded test set across all 3
+models, 5 seeds × 30 trials × 5 inner CV</td>
+</tr>
+<tr class="odd">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/aggregate.py</code></td>
+<td>Headline + per-quartile tables</td>
+</tr>
+<tr class="even">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/verify_same_test_set.py</code></td>
+<td>Audit: confirms all 3 models share the same test cells per seed</td>
+</tr>
+<tr class="odd">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/runs/seed_*/predictions.csv</code></td>
+<td>Per-seed (cell_name, y_true, rsf_pred, xgb_pred, ebm_pred)</td>
+</tr>
+<tr class="even">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/metric_long.csv</code></td>
+<td>150 rows: (seed, model, metric, value)</td>
+</tr>
+<tr class="odd">
+<td><code>experiments/exp_h_rsf_vs_regressors_fair/summary.json</code></td>
+<td>Mean ± std per (model × metric)</td>
 </tr>
 </tbody>
 </table>
 <h2
-id="code-changes-additive--no-existing-files-outside-cell_lifetime-touched">Code
+id="code-changes-additive-no-existing-files-outside-cell_lifetime-touched">Code
 changes (additive — no existing files outside cell_lifetime/
 touched)</h2>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>File</th>
@@ -2641,6 +2820,11 @@ user_attr</td>
 <hr />
 <h2 id="open-items-for-future-work">Open items for future work</h2>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>Item</th>
@@ -2651,7 +2835,7 @@ user_attr</td>
 <tbody>
 <tr class="odd">
 <td>Weighted ensemble</td>
-<td>Plan specified simple z-score blend; null result is the report's
+<td>Plan specified simple z-score blend; null result is the report’s
 finding</td>
 <td>Weight by out-of-fold C-index (likely 70/30 RSF/AFT)</td>
 </tr>

@@ -13,7 +13,8 @@ Last updated: 2026-05-15T22:00:00Z
 | phase_experiments_a_b | in-session | 2026-05-16T19:10Z | 2026-05-16T23:35Z | OK | b41f0ce | 5 src + 14 exp | 50 | 50 | experiments/REPORT.html |
 | phase_experiments_c_d_e_f | in-session | 2026-05-17T00:00Z | 2026-05-17T00:25Z | OK | 29c6857 | 4 src + 16 exp | 66 | 66 | experiments/REPORT.html |
 | phase_experiments_g | in-session | 2026-05-17T00:42Z | 2026-05-17T03:23Z | OK | a9573d2 | 3 src + 10 exp | 75 | 75 | experiments/REPORT.html |
-| phase_experiments_g_followup_fsall | in-session | 2026-05-17T14:20Z | 2026-05-17T15:14Z | OK | (pending) | 0 src + 7 exp | 75 | 75 | experiments/REPORT.html |
+| phase_experiments_g_followup_fsall | in-session | 2026-05-17T14:20Z | 2026-05-17T15:14Z | OK | aed9924 | 0 src + 7 exp | 75 | 75 | experiments/REPORT.html |
+| phase_experiments_h_rsf_vs_regressors | in-session | 2026-05-17T23:34Z | 2026-05-18T00:13Z | OK | (pending) | 0 src + 4 exp | 75 | 75 | experiments/exp_h_rsf_vs_regressors_fair/summary.json |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 

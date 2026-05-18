@@ -1,0 +1,71 @@
+{
+  "seed": 1,
+  "n_F_train": 149,
+  "n_F_test": 38,
+  "n_censored": 228,
+  "trials": 30,
+  "inner_cv": 5,
+  "results": {
+    "rsf": {
+      "mae": 154.81578947368422,
+      "rmse": 189.67028177728236,
+      "r2": 0.28496842258845656,
+      "medae": 126.0,
+      "mape": 1.2722916968842537,
+      "runtime_s": 33.575334310531616,
+      "mae_q1": 137.3,
+      "mae_q2": 232.0,
+      "mae_q3": 144.55555555555554,
+      "mae_q4": 112.1
+    },
+    "rsf_best_params": {
+      "n_estimators": 100,
+      "max_depth": 5,
+      "min_samples_split": 15,
+      "min_samples_leaf": 8,
+      "max_features": null
+    },
+    "xgb_regressor": {
+      "mae": 119.37759844546869,
+      "rmse": 180.16598876826222,
+      "r2": 0.35483282692559903,
+      "medae": 68.83954443541916,
+      "mape": 1.0458140562536609,
+      "runtime_s": 65.89505195617676,
+      "mae_q1": 62.788290545460335,
+      "mae_q2": 132.11242774226776,
+      "mae_q3": 42.95103958231751,
+      "mae_q4": 233.28946295519398
+    },
+    "xgb_regressor_best_params": {
+      "n_estimators": 475,
+      "max_depth": 10,
+      "learning_rate": 0.017975672907534594,
+      "subsample": 0.6856770334438126,
+      "colsample_bytree": 0.88689344939641,
+      "min_child_weight": 1,
+      "gamma": 0.003630092060881881,
+      "reg_lambda": 0.14951486483379647
+    },
+    "ebm_regressor": {
+      "mae": 137.95361728559774,
+      "rmse": 187.3873785696835,
+      "r2": 0.3020773155627261,
+      "medae": 91.54361566536826,
+      "mape": 1.2367216787349522,
+      "runtime_s": 352.44372391700745,
+      "mae_q1": 110.00190798619253,
+      "mae_q2": 155.23957915592842,
+      "mae_q3": 56.04155048525911,
+      "mae_q4": 224.0688210220103
+    },
+    "ebm_regressor_best_params": {
+      "max_bins": 384,
+      "max_interaction_bins": 40,
+      "interactions": 1,
+      "learning_rate": 0.0052515866995641956,
+      "min_samples_leaf": 2,
+      "max_leaves": 2
+    }
+  }
+}

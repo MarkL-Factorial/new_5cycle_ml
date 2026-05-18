@@ -790,6 +790,105 @@ projections of the same underlying continuous problem.
 
 ---
 
+## Experiment H — fair 3-way head-to-head for continuous cycle-life prediction (fs_cv)
+
+**Question**: At `fs_cv` (12 features), how do RSF (using its native
+median-survival cycle-life output), XGB regressor, and EBM regressor
+compare when:
+
+1. The **test set is identical for all three models** — 20% of *faded*
+   cells only (cells with ground-truth cycle counts).
+2. **RSF training** uses censored cells *plus* the remaining 80% of
+   faded; **regressor training** uses only the 80% of faded. This
+   isolates "does censored data help median-survival cycle-life
+   prediction?".
+3. All three get an **identical 30 trials × 5 inner CV budget**, 5
+   seeds, sqrt target transform on the regressors.
+
+### Protocol
+
+| Split component | RSF | XGB regressor | EBM regressor |
+|---|---|---|---|
+| Train | 80% faded (≈149) + ALL censored (228) = 377 | 80% faded (≈149) | 80% faded (≈149) |
+| Test | same 20% faded (≈38) for all three | same | same |
+| Target transform | none (consumes time+event) | √cycles | √cycles |
+| HP tune objective | C-index (inner 5-CV) | MAE (inner 5-CV) | MAE (inner 5-CV) |
+| Cycle-life prediction | median survival: min{t : S(t)≤0.5} | predict² | predict² |
+
+Test cells are verified identical per seed via SHA-256 fingerprint
+in `runs/seed_*/results.json` (see `verify_same_test_set.py`).
+
+### Headline results (5 seeds, fs_cv, mean ± std)
+
+| Model | MAE (cyc) | MAPE | RMSE | R² | Stability (MAE std) |
+|---|---:|---:|---:|---:|---:|
+| **xgb_regressor** | **123.4 ± 15.3** | **1.28 ± 0.40** | **171.3 ± 25.4** | **0.39 ± 0.11** | ±15.3 |
+| ebm_regressor | 131.7 ± 17.5 | 1.29 ± 0.43 | 174.2 ± 24.3 | 0.37 ± 0.11 | ±17.5 |
+| rsf (median-surv) | 143.3 ± 8.9 | 1.51 ± 0.46 | 182.8 ± 6.7 | 0.30 ± 0.08 | **±8.9** |
+
+### Per-quartile MAE — where each model wins
+
+| Model | Q1 (shortest) | Q2 | Q3 | Q4 (longest) |
+|---|---:|---:|---:|---:|
+| xgb_regressor | **94.4 ± 20.2** | **93.8 ± 37.2** | **64.9 ± 16.4** | 231.8 ± 48.3 |
+| ebm_regressor | 105.5 ± 10.9 | 112.0 ± 45.6 | 73.2 ± 18.5 | 228.3 ± 36.8 |
+| rsf (median-surv) | 146.1 ± 44.2 | 159.7 ± 58.0 | 128.3 ± 34.2 | **139.4 ± 40.4** |
+
+### Findings
+
+1. **XGB regressor wins on mean MAE** (123.4 cyc) — beats RSF
+   (median-surv) by ≈20 cyc and EBM by ≈8 cyc. Lower MAPE too.
+   Censored cells in RSF's training set do **not** help median-survival
+   cycle-life prediction on faded cells.
+2. **RSF has the lowest variance** (MAE std 8.9 vs 15–17 for the
+   regressors). The censored-cell ballast stabilises its predictions
+   across seeds even when its mean MAE is worse.
+3. **The error distribution is the real story** — RSF and the
+   regressors fail in *opposite* directions:
+   - **Regressors win Q1–Q3** (short and middle-life cells). MAE in
+     the 65–112 cyc range vs RSF's 128–160 cyc.
+   - **RSF wins Q4** (long-life cells). MAE 139 cyc vs regressors'
+     228–232 cyc. This is the regressor selection-bias problem we
+     flagged earlier: trained only on ≤1052-cycle faded cells, the
+     regressors regress to the population median for long-lived
+     cells they've never seen the upper tail of.
+   - RSF, trained on time-event data including censored cells (whose
+     `time` extends to wherever observation stopped), has a richer
+     view of "could live past N" and predicts those cells better.
+4. **MAPE is similar across all three** (1.28–1.51), driven mostly
+   by short-lived cells where a 50-cycle absolute error is a 100% +
+   relative error.
+5. **EBM is ≈10× slower** (382s vs 40s/44s per seed) without a
+   meaningful accuracy gain over XGB at fs_cv.
+
+### Verdict (this comparison only — fs_cv, sqrt target, median-survival
+extraction)
+
+| Use case | Pick |
+|---|---|
+| Lowest *average* MAE across faded cells | **xgb_regressor** |
+| Most seed-stable MAE | **rsf (median-surv)** |
+| Best long-life (Q4) prediction | **rsf (median-surv)** |
+| Best short / middle-life prediction | **xgb_regressor** |
+| Hybrid candidate (future work) | gate by predicted cycle-life: regressor for short, RSF for long — could close most of the MAE gap. |
+
+### Crucial caveat
+
+This experiment uses RSF's **median-survival** as the cycle-life
+prediction. Earlier reports (Cross-experiment synthesis above) cited
+`rsf × fs_cv` with MAE = 132.8 ± 26.3 / MAPE = 65% — those came from
+**rank-quantile calibration** of the risk score (a different RSF
+output transform). Median-survival, the principled "1-S(N) = 0.5"
+extraction, is fundamentally biased toward the population median for
+short-lived cells whose true cycle life is well below the censored
+training population's central tendency.
+
+In short: RSF can be the cycle-life winner — but you have to use the
+right output. Median-survival is *not* it; rank-quantile or a
+recalibration step (e.g. Bayesian Cox-PH posterior median) is.
+
+---
+
 ## Methodology
 
 ### Protocol
@@ -844,15 +943,21 @@ predicts magnitudes better, but because it uses all the data.
 
 | Path | Contents |
 |---|---|
-| `experiments/exp_a_feature_set/run.sh` | Driver for all 5 models × 2 feature subsets |
-| `experiments/exp_a_feature_set/aggregate.py` | Walks `out/runs/`, builds metric_long.csv + headline.csv |
-| `experiments/exp_a_feature_set/metric_long.csv` | 228 rows: every (model, fs, metric) tuple |
-| `experiments/exp_a_feature_set/headline.csv` | Comparison table (10 rows) |
-| `experiments/exp_a_feature_set/logs/*.log` | Per-run stdout/stderr |
-| `experiments/exp_b_horizon_and_blend/run.sh` | Driver for rsf + xgb_aft × N |
-| `experiments/exp_b_horizon_and_blend/blend.py` | z-score blend + survival_metrics recompute |
-| `experiments/exp_b_horizon_and_blend/blend_summary_fs_cv.json` | Per-N blend results |
-| `experiments/exp_b_horizon_and_blend/logs/*.log` | Per-run stdout/stderr |
+| `experiments/done_exp_a_to_g/exp_a_feature_set/run.sh` | Driver for all 5 models × 2 feature subsets |
+| `experiments/done_exp_a_to_g/exp_a_feature_set/aggregate.py` | Walks `out/runs/`, builds metric_long.csv + headline.csv |
+| `experiments/done_exp_a_to_g/exp_a_feature_set/metric_long.csv` | 228 rows: every (model, fs, metric) tuple |
+| `experiments/done_exp_a_to_g/exp_a_feature_set/headline.csv` | Comparison table (10 rows) |
+| `experiments/done_exp_a_to_g/exp_a_feature_set/logs/*.log` | Per-run stdout/stderr |
+| `experiments/done_exp_a_to_g/exp_b_horizon_and_blend/run.sh` | Driver for rsf + xgb_aft × N |
+| `experiments/done_exp_a_to_g/exp_b_horizon_and_blend/blend.py` | z-score blend + survival_metrics recompute |
+| `experiments/done_exp_a_to_g/exp_b_horizon_and_blend/blend_summary_fs_cv.json` | Per-N blend results |
+| `experiments/done_exp_a_to_g/exp_b_horizon_and_blend/logs/*.log` | Per-run stdout/stderr |
+| `experiments/exp_h_rsf_vs_regressors_fair/run.py` | Self-contained driver: identical 20%-faded test set across all 3 models, 5 seeds × 30 trials × 5 inner CV |
+| `experiments/exp_h_rsf_vs_regressors_fair/aggregate.py` | Headline + per-quartile tables |
+| `experiments/exp_h_rsf_vs_regressors_fair/verify_same_test_set.py` | Audit: confirms all 3 models share the same test cells per seed |
+| `experiments/exp_h_rsf_vs_regressors_fair/runs/seed_*/predictions.csv` | Per-seed (cell_name, y_true, rsf_pred, xgb_pred, ebm_pred) |
+| `experiments/exp_h_rsf_vs_regressors_fair/metric_long.csv` | 150 rows: (seed, model, metric, value) |
+| `experiments/exp_h_rsf_vs_regressors_fair/summary.json` | Mean ± std per (model × metric) |
 
 ## Code changes (additive — no existing files outside cell_lifetime/ touched)
 
