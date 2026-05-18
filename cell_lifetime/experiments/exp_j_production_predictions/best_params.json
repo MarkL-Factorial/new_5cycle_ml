@@ -15,93 +15,99 @@
   "models": {
     "ebm_classifier_n200": {
       "params": {
-        "max_bins": 512,
-        "max_interaction_bins": 24,
+        "max_bins": 64,
+        "max_interaction_bins": 16,
         "interactions": 1,
-        "learning_rate": 0.0014103526854321563,
-        "min_samples_leaf": 18,
-        "max_leaves": 2
+        "learning_rate": 0.0021511311334908396,
+        "min_samples_leaf": 15,
+        "max_leaves": 3
       },
-      "inner_cv_auc_mean": 0.9121327283827283,
+      "inner_cv_auc_mean": 0.935654261704682,
       "inner_cv_auc_per_fold": [
-        0.9517045454545454,
-        0.8615384615384616,
-        0.8833333333333333,
-        0.9444444444444444,
-        0.9196428571428571
+        0.9775910364145658,
+        0.8809523809523809,
+        0.9501133786848073,
+        0.9410430839002268,
+        0.9285714285714285
       ],
-      "n_training_cells": 187,
+      "n_training_cells": 291,
+      "n_training_faded": 187,
+      "n_training_censored": 104,
       "n_features": 3,
-      "label_n_pass": 121,
-      "label_n_fail": 66,
-      "tune_time_s": 365.4159686565399
+      "label_n_pass": 224,
+      "label_n_fail": 67,
+      "tune_time_s": 203.45891499519348
     },
     "ebm_classifier_n300": {
       "params": {
-        "max_bins": 448,
+        "max_bins": 512,
         "max_interaction_bins": 24,
-        "interactions": 2,
-        "learning_rate": 0.00646974841745653,
-        "min_samples_leaf": 16,
+        "interactions": 0,
+        "learning_rate": 0.0010520629063878505,
+        "min_samples_leaf": 19,
         "max_leaves": 2
       },
-      "inner_cv_auc_mean": 0.8461531279178338,
+      "inner_cv_auc_mean": 0.866717402477789,
       "inner_cv_auc_per_fold": [
-        0.9271708683473389,
-        0.7888888888888889,
-        0.7,
-        0.9147058823529411,
-        0.8999999999999999
+        0.9144385026737967,
+        0.8387096774193548,
+        0.8539898132427844,
+        0.8896434634974533,
+        0.8368055555555556
       ],
-      "n_training_cells": 187,
+      "n_training_cells": 250,
+      "n_training_faded": 187,
+      "n_training_censored": 63,
       "n_features": 3,
-      "label_n_pass": 96,
-      "label_n_fail": 91,
-      "tune_time_s": 177.46565699577332
+      "label_n_pass": 158,
+      "label_n_fail": 92,
+      "tune_time_s": 195.18592047691345
     },
     "ebm_classifier_n400": {
       "params": {
-        "max_bins": 128,
+        "max_bins": 448,
         "max_interaction_bins": 16,
         "interactions": 2,
-        "learning_rate": 0.004240665453647425,
-        "min_samples_leaf": 10,
-        "max_leaves": 3
+        "learning_rate": 0.08392057546877722,
+        "min_samples_leaf": 9,
+        "max_leaves": 4
       },
-      "inner_cv_auc_mean": 0.8500768398268399,
+      "inner_cv_auc_mean": 0.868909090909091,
       "inner_cv_auc_per_fold": [
-        0.8782608695652174,
-        0.8494318181818181,
-        0.7866666666666666,
-        0.8850931677018634,
-        0.8509316770186336
+        0.9038461538461539,
+        0.9363636363636364,
+        0.8461538461538461,
+        0.8036363636363636,
+        0.8545454545454545
       ],
-      "n_training_cells": 187,
+      "n_training_cells": 236,
+      "n_training_faded": 187,
+      "n_training_censored": 49,
       "n_features": 3,
-      "label_n_pass": 71,
-      "label_n_fail": 116,
-      "tune_time_s": 120.64253211021423
+      "label_n_pass": 119,
+      "label_n_fail": 117,
+      "tune_time_s": 90.15333843231201
     },
     "rsf": {
       "params": {
-        "n_estimators": 175,
-        "max_depth": 12,
-        "min_samples_split": 7,
-        "min_samples_leaf": 14,
-        "max_features": "sqrt"
+        "n_estimators": 250,
+        "max_depth": 14,
+        "min_samples_split": 14,
+        "min_samples_leaf": 9,
+        "max_features": "log2"
       },
-      "inner_cv_cindex_mean": 0.8035108495085437,
+      "inner_cv_cindex_mean": 0.799783561626063,
       "inner_cv_cindex_per_fold": [
-        0.8322147651006712,
-        0.777504105090312,
-        0.7933289731850883,
-        0.8381294964028777,
-        0.7763769077637691
+        0.8221476510067114,
+        0.7684729064039408,
+        0.7939829954218444,
+        0.8399280575539568,
+        0.774386197743862
       ],
       "n_training_cells": 415,
       "n_features": 12,
       "t_cap": 1052.0,
-      "tune_time_s": 39.08526945114136
+      "tune_time_s": 42.08013439178467
     }
   }
 }

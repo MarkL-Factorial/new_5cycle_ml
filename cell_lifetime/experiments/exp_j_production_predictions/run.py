@@ -4,14 +4,17 @@
 Trains 4 models on the FULL dataset (no train/test split) and emits
 per-cell predictions for ALL 415 cells:
 
-  1. ebm_classifier (N=200) — trained on 187 faded cells, fs_a_only (3)
-  2. ebm_classifier (N=300) — trained on 187 faded cells, fs_a_only (3)
-  3. ebm_classifier (N=400) — trained on 187 faded cells, fs_a_only (3)
+  1. ebm_classifier (N=200) — trained on cells where `trainable_n200=True`
+                              (= 187 faded ∪ censored with n_regular≥200),
+                              fs_a_only (3 features)
+  2. ebm_classifier (N=300) — trainable_n300 cells, fs_a_only
+  3. ebm_classifier (N=400) — trainable_n400 cells, fs_a_only
   4. rsf                    — trained on all 415 cells, fs_cv (12)
 
 Each model is hyperparameter-tuned via Optuna (30 trials × 5 inner CV).
-Out-of-fold (OOF) probabilities for the classifiers are also recorded
-to diagnose overfit.
+Out-of-fold (OOF) probabilities for the classifiers are recorded for
+all training cells (faded + qualifying censored); cells outside the
+training set for that N get OOF=NaN.
 
 Outputs:
   - predictions.csv     — one row per cell (415 rows)
@@ -216,75 +219,87 @@ def main() -> int:
     log.info(f"Exp J production fit. trials={args.trials}, inner_cv={args.inner_cv}, seed={args.seed}")
     log.info(f"Log path: {log_path}")
 
-    # ---- Load data ---------------------------------------------------------
-    log.info("Loading dataset (fs_cv for RSF, fs_a_only for classifier)…")
+    # ---- Load dataset for RSF (fs_cv, N=300 placeholder — N is not used by survival) ----
+    log.info("Loading dataset for RSF (fs_cv)…")
     ds_cv = load_dataset(
         N=300, feature_subset="fs_cv",
         baseline_cycle=args.baseline_cycle, db_version=args.db_version,
     )
-    ds_a = load_dataset(
-        N=300, feature_subset="fs_a_only",
-        baseline_cycle=args.baseline_cycle, db_version=args.db_version,
-    )
-    # Sanity: both loaders must return the same cells in the same order
-    assert (ds_cv.cell_names == ds_a.cell_names).all(), \
-        "Loader returned different cell orderings between fs_cv and fs_a_only"
     n_total = len(ds_cv)
     n_faded = int(ds_cv.event.sum())
     n_censored = int((~ds_cv.event).sum())
     log.info(
         f"Dataset: {n_total} cells = {n_faded} faded + {n_censored} censored; "
-        f"fs_cv has {ds_cv.X.shape[1]} cols, fs_a_only has {ds_a.X.shape[1]} cols"
+        f"fs_cv has {ds_cv.X.shape[1]} cols"
     )
 
     X_cv_all = ds_cv.X.reset_index(drop=True)
-    X_a_all = ds_a.X.reset_index(drop=True)
     event_all = ds_cv.event.astype(bool)
     time_all = ds_cv.time.astype(np.int64)
     y_cycle_all = ds_cv.y_cycle.astype(float)
     cell_names = ds_cv.cell_names
 
-    # Faded-only views for the classifier
-    faded_idx = np.where(event_all)[0]
-    X_a_faded = X_a_all.iloc[faded_idx].reset_index(drop=True)
-    cycle_life_faded = y_cycle_all[faded_idx]
-    log.info(f"Classifier training set: {len(faded_idx)} faded cells × {X_a_faded.shape[1]} features")
-
-    # ---- Train 3 classifiers ----------------------------------------------
+    # ---- Train 3 classifiers using trainable_n{N} masks --------------------
+    # For each N, the upstream `trainable_n{N}` mask selects cells with
+    # definitive labels: all 187 faded cells + censored cells where
+    # n_regular >= N (definitively pass). The loader populates
+    # `ds_N.label_mask` and `ds_N.y_class` for the requested N directly.
     best_params: dict[str, Any] = {}
     classifier_predictions: dict[int, dict[str, np.ndarray]] = {}
+    in_training_set: dict[int, np.ndarray] = {}
 
     for N in (200, 300, 400):
         log.info(f"=== ebm_classifier × fs_a_only × N={N} ===")
-        y = (cycle_life_faded >= N).astype(np.int8)
-        n_pass = int(y.sum())
-        n_fail = int((1 - y).sum())
+        ds_N = load_dataset(
+            N=N, feature_subset="fs_a_only",
+            baseline_cycle=args.baseline_cycle, db_version=args.db_version,
+        )
+        # Cross-load invariants — same cells in same order regardless of N
+        assert (ds_N.cell_names == cell_names).all(), \
+            f"N={N} loader returned different cell ordering than the fs_cv load"
+        assert (ds_N.event == event_all).all(), \
+            f"N={N} loader returned different event array than the fs_cv load"
+
+        X_a_all = ds_N.X.reset_index(drop=True)
+        if N == 200:
+            log.info(f"  fs_a_only has {X_a_all.shape[1]} cols")
+        label_mask = ds_N.label_mask.astype(bool)
+        y_class_all = ds_N.y_class.astype(np.int8)
+
+        train_idx = np.where(label_mask)[0]
+        X_train = X_a_all.iloc[train_idx].reset_index(drop=True)
+        y_train = y_class_all[train_idx]
+        n_train = len(train_idx)
+        n_train_faded = int((event_all[train_idx]).sum())
+        n_train_censored = n_train - n_train_faded
+        n_pass = int((y_train == 1).sum())
+        n_fail = int((y_train == 0).sum())
+        log.info(
+            f"  trainable_n{N}: {n_train} cells = {n_train_faded} faded + "
+            f"{n_train_censored} censored"
+        )
         log.info(f"  Labels at N={N}: pass={n_pass}, fail={n_fail}")
-        if n_pass < args.inner_cv or n_fail < args.inner_cv:
-            log.warning(
-                f"  Class imbalance: <{args.inner_cv} cells in minority class — "
-                f"inner CV folds may have only one class; objective scores will skip those folds"
-            )
+        in_training_set[N] = label_mask
 
         t0 = _time.time()
         log.info(f"  Tuning ({args.trials} trials × {args.inner_cv} inner CV, ROC-AUC objective)…")
         best, auc_best, fold_aucs = tune_ebm_classifier(
-            X_a_faded, y, args.trials, args.inner_cv, args.seed
+            X_train, y_train, args.trials, args.inner_cv, args.seed
         )
         tune_t = _time.time() - t0
         log.info(f"  Best ROC-AUC = {auc_best:.4f} (folds: {[round(s,4) for s in fold_aucs]})")
         log.info(f"  Best params: {best}")
         log.info(f"  Tune time: {tune_t:.1f}s")
 
-        log.info(f"  Computing OOF probabilities (5-fold w/ best params)…")
+        log.info(f"  Computing OOF probabilities ({args.inner_cv}-fold w/ best params)…")
         t0 = _time.time()
-        oof = oof_probabilities(X_a_faded, y, best, args.inner_cv, args.seed)
-        log.info(f"  OOF mean prob = {np.nanmean(oof):.4f}, OOF time: {_time.time()-t0:.1f}s")
+        oof_train = oof_probabilities(X_train, y_train, best, args.inner_cv, args.seed)
+        log.info(f"  OOF mean prob = {np.nanmean(oof_train):.4f}, OOF time: {_time.time()-t0:.1f}s")
 
-        log.info(f"  Refitting on all {len(faded_idx)} faded cells…")
+        log.info(f"  Refitting on all {n_train} trainable_n{N} cells…")
         t0 = _time.time()
         model = EBMClassifierModel(best)
-        model.fit(X_a_faded, y)
+        model.fit(X_train, y_train)
         log.info(f"  Refit time: {_time.time()-t0:.1f}s")
 
         log.info(f"  Predicting on all {n_total} cells…")
@@ -292,13 +307,20 @@ def main() -> int:
         pred = (prob >= 0.5).astype(np.int8)
         log.info(f"  Predicted pass rate: {pred.mean():.4f}, mean prob: {prob.mean():.4f}")
 
-        classifier_predictions[N] = {"prob": prob, "pred": pred, "oof": oof}
+        # Build OOF aligned to all-cells order: training cells get their fold
+        # probability; non-training cells get NaN.
+        oof_full = np.full(n_total, np.nan, dtype=float)
+        oof_full[train_idx] = oof_train
+
+        classifier_predictions[N] = {"prob": prob, "pred": pred, "oof": oof_full}
         best_params[f"ebm_classifier_n{N}"] = {
             "params": best,
             "inner_cv_auc_mean": auc_best,
             "inner_cv_auc_per_fold": fold_aucs,
-            "n_training_cells": int(len(faded_idx)),
-            "n_features": int(X_a_faded.shape[1]),
+            "n_training_cells": n_train,
+            "n_training_faded": n_train_faded,
+            "n_training_censored": n_train_censored,
+            "n_features": int(X_train.shape[1]),
             "label_n_pass": n_pass,
             "label_n_fail": n_fail,
             "tune_time_s": tune_t,
@@ -356,11 +378,8 @@ def main() -> int:
             for i in range(n_total)
         ])
 
-    # OOF aligned to all-cells row order — fill censored with NaN
-    oof_full: dict[int, np.ndarray] = {}
-    for N in (200, 300, 400):
-        oof_full[N] = np.full(n_total, np.nan, dtype=float)
-        oof_full[N][faded_idx] = classifier_predictions[N]["oof"]
+    # The OOF arrays from `classifier_predictions[N]["oof"]` are already
+    # aligned to all-cells row order (NaN for cells outside training_n{N}).
 
     df = pd.DataFrame({
         "cell_name": cell_names,
@@ -372,15 +391,18 @@ def main() -> int:
         "true_pass_n200": true_pass[200],
         "true_pass_n300": true_pass[300],
         "true_pass_n400": true_pass[400],
+        "in_training_set_n200": in_training_set[200],
+        "in_training_set_n300": in_training_set[300],
+        "in_training_set_n400": in_training_set[400],
         "pred_pass_n200": classifier_predictions[200]["pred"],
         "pred_pass_n300": classifier_predictions[300]["pred"],
         "pred_pass_n400": classifier_predictions[400]["pred"],
         "prob_pass_n200": classifier_predictions[200]["prob"],
         "prob_pass_n300": classifier_predictions[300]["prob"],
         "prob_pass_n400": classifier_predictions[400]["prob"],
-        "oof_prob_pass_n200": oof_full[200],
-        "oof_prob_pass_n300": oof_full[300],
-        "oof_prob_pass_n400": oof_full[400],
+        "oof_prob_pass_n200": classifier_predictions[200]["oof"],
+        "oof_prob_pass_n300": classifier_predictions[300]["oof"],
+        "oof_prob_pass_n400": classifier_predictions[400]["oof"],
         "rsf_median_cycle": rsf_median,
     })
 
