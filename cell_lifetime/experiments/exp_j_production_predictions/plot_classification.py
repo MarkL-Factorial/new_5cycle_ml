@@ -1,22 +1,24 @@
 #!/usr/bin/env python
 """Visualize the 3 ebm_classifier × fs_a_only models at N=200, 300, 400.
 
-Uses the **out-of-fold (OOF) probabilities** from `predictions.csv` —
-these are honest out-of-sample predictions for the 187 faded training
-cells (each cell was held out of one of the 5 inner CV folds when its
-probability was scored). Censored cells aren't in the training set so
-they have NaN OOF and aren't included here.
+Uses the **out-of-fold (OOF) probabilities** from `predictions.csv`.
+The evaluation surface is **the cells inside `trainable_n{N}`** — i.e.
+all cells with a definitive label at N (faded cells with known cycle
+life + censored cells observed past N). This matches the eval surface
+the prior multi-seed cell_lifetime experiments used for their reported
+F1/AUC, so numbers here are directly comparable.
 
 Two figures:
 
   1. `classifier_roc_confusion.png` — 2 rows × 3 cols:
-       row 1: ROC curve per N, with AUC annotated
+       row 1: ROC curve per N, with AUC annotated (eval on trainable_n{N})
        row 2: confusion matrix at threshold 0.5
 
   2. `classifier_prob_vs_cycle.png` — 1 row × 3 cols:
-       predicted P(pass N) vs true cycle life, vertical line at N.
-       Shows the model's decision boundary as a function of the
-       feature we care about most (cycle life).
+       OOF P(pass N) vs cycle life on the x-axis. Faded cells use
+       last_fade_cycle (filled circles); censored-in-training cells
+       use n_regular (right triangles, signalling actual cycle ≥ x).
+       Vertical dashed line at N marks the truth boundary.
 """
 
 from __future__ import annotations
@@ -39,14 +41,17 @@ NS = (200, 300, 400)
 
 
 def plot_roc_and_confusion(df: pd.DataFrame) -> Path:
-    faded = df[df["status"] == "faded"].copy()
-
     fig, axes = plt.subplots(2, 3, figsize=(13, 8.5))
 
     for col, N in enumerate(NS):
-        y_true = faded[f"true_pass_n{N}"].to_numpy().astype(int)
-        y_prob = faded[f"oof_prob_pass_n{N}"].to_numpy()
+        # Eval on the full trainable_n{N} set (faded + censored-known-pass).
+        # This matches the eval surface used by prior multi-seed runs.
+        sub = df[df[f"in_training_set_n{N}"]].copy()
+        y_true = sub[f"true_pass_n{N}"].to_numpy().astype(int)
+        y_prob = sub[f"oof_prob_pass_n{N}"].to_numpy()
         y_pred = (y_prob >= 0.5).astype(int)
+        n_faded = int((sub["status"] == "faded").sum())
+        n_censored = int((sub["status"] == "censored").sum())
 
         # ----- ROC curve -----
         ax = axes[0, col]
@@ -63,7 +68,8 @@ def plot_roc_and_confusion(df: pd.DataFrame) -> Path:
         ax.set_ylabel("True Positive Rate")
         ax.set_title(
             f"ROC — N={N}\nF1={f1:.3f}, Acc={acc:.3f}, "
-            f"pass={int(y_true.sum())}/{len(y_true)}"
+            f"pass={int(y_true.sum())}/{len(y_true)} "
+            f"({n_faded} faded + {n_censored} cens.)"
         )
         ax.set_xlim(-0.02, 1.02)
         ax.set_ylim(-0.02, 1.02)
@@ -99,7 +105,7 @@ def plot_roc_and_confusion(df: pd.DataFrame) -> Path:
                     ha="center", va="bottom", fontsize=8, color="0.3")
 
     fig.suptitle(
-        "Exp J — ebm_classifier × fs_a_only (3 features), out-of-fold predictions on 187 faded cells",
+        "Exp J — ebm_classifier × fs_a_only (3 features), OOF predictions on trainable_n{N} cells",
         fontsize=12, y=0.995,
     )
     fig.tight_layout(rect=[0, 0, 1, 0.97])
@@ -110,39 +116,53 @@ def plot_roc_and_confusion(df: pd.DataFrame) -> Path:
 
 
 def plot_prob_vs_cycle(df: pd.DataFrame) -> Path:
-    faded = df[df["status"] == "faded"].copy()
-    cyc = faded["last_fade_cycle"].to_numpy()
-
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.8), sharey=True)
     for col, N in enumerate(NS):
         ax = axes[col]
-        prob = faded[f"oof_prob_pass_n{N}"].to_numpy()
-        true_pass = (cyc >= N).astype(int)
+        sub = df[df[f"in_training_set_n{N}"]].copy()
 
-        # Two marker styles by truth
-        for label_val, color, marker, name in (
-            (1, "#2ca02c", "o", "true pass"),
-            (0, "#d62728", "X", "true fail"),
+        faded = sub[sub["status"] == "faded"]
+        censored = sub[sub["status"] == "censored"]
+
+        # Faded cells — actual cycle is last_fade_cycle. Two markers by truth.
+        f_cyc = faded["last_fade_cycle"].to_numpy()
+        f_prob = faded[f"oof_prob_pass_n{N}"].to_numpy()
+        f_true_pass = (f_cyc >= N).astype(int)
+        for label_val, color, name in (
+            (1, "#2ca02c", "faded → true pass"),
+            (0, "#d62728", "faded → true fail"),
         ):
-            sel = (true_pass == label_val)
+            sel = (f_true_pass == label_val)
+            marker = "o" if label_val == 1 else "X"
             ax.scatter(
-                cyc[sel], prob[sel],
+                f_cyc[sel], f_prob[sel],
                 marker=marker, facecolor=color, edgecolor="white",
                 linewidth=0.4, s=42, alpha=0.85,
                 label=f"{name} (n={int(sel.sum())})",
             )
+
+        # Censored-in-training cells — all true pass; actual cycle ≥ n_regular.
+        c_cyc = censored["n_regular"].to_numpy()
+        c_prob = censored[f"oof_prob_pass_n{N}"].to_numpy()
+        ax.scatter(
+            c_cyc, c_prob,
+            marker=">", facecolor="#1f77b4", edgecolor="white",
+            linewidth=0.4, s=46, alpha=0.85,
+            label=f"censored → true pass, actual ≥ x (n={len(c_cyc)})",
+        )
+
         ax.axvline(N, color="gray", linestyle="--", linewidth=1, label=f"N={N}")
         ax.axhline(0.5, color="gray", linestyle=":", linewidth=1)
-        ax.set_xlabel("True cycle life (cycles)")
+        ax.set_xlabel("Cycle life (faded: last_fade; censored: n_regular)")
         if col == 0:
             ax.set_ylabel("OOF P(pass N)")
         ax.set_title(f"N={N}")
         ax.set_ylim(-0.03, 1.03)
         ax.grid(True, linestyle=":", alpha=0.6)
-        ax.legend(loc="center right", fontsize=8)
+        ax.legend(loc="center right", fontsize=7)
 
     fig.suptitle(
-        "Exp J — OOF P(pass N) vs true cycle life, by N (187 faded cells)",
+        "Exp J — OOF P(pass N) vs cycle life, by N (trainable_n{N} cells)",
         fontsize=12, y=1.02,
     )
     fig.tight_layout()
@@ -158,18 +178,21 @@ def main() -> int:
     p2 = plot_prob_vs_cycle(df)
     print(f"Wrote {p1}")
     print(f"Wrote {p2}")
-    # Print a small text summary
-    faded = df[df["status"] == "faded"]
+    # Print a small text summary — eval on trainable_n{N} (matches prior runs)
     for N in NS:
-        y_true = faded[f"true_pass_n{N}"].to_numpy().astype(int)
-        y_prob = faded[f"oof_prob_pass_n{N}"].to_numpy()
+        sub = df[df[f"in_training_set_n{N}"]]
+        y_true = sub[f"true_pass_n{N}"].to_numpy().astype(int)
+        y_prob = sub[f"oof_prob_pass_n{N}"].to_numpy()
         y_pred = (y_prob >= 0.5).astype(int)
         auc = roc_auc_score(y_true, y_prob)
         f1 = f1_score(y_true, y_pred)
         acc = accuracy_score(y_true, y_pred)
         cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-        print(f"  N={N}: AUC={auc:.3f}, F1={f1:.3f}, Acc={acc:.3f}  "
-              f"  CM[TN,FP,FN,TP]={cm.flatten().tolist()}")
+        n_faded = int((sub["status"] == "faded").sum())
+        n_censored = int((sub["status"] == "censored").sum())
+        print(f"  N={N}: AUC={auc:.3f}, F1={f1:.3f}, Acc={acc:.3f}, "
+              f"n={len(y_true)} ({n_faded} faded + {n_censored} cens.), "
+              f"CM[TN,FP,FN,TP]={cm.flatten().tolist()}")
     return 0
 
 
