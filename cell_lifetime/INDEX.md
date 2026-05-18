@@ -15,7 +15,8 @@ Last updated: 2026-05-15T22:00:00Z
 | phase_experiments_g | in-session | 2026-05-17T00:42Z | 2026-05-17T03:23Z | OK | a9573d2 | 3 src + 10 exp | 75 | 75 | experiments/REPORT.html |
 | phase_experiments_g_followup_fsall | in-session | 2026-05-17T14:20Z | 2026-05-17T15:14Z | OK | aed9924 | 0 src + 7 exp | 75 | 75 | experiments/REPORT.html |
 | phase_experiments_h_rsf_vs_regressors | in-session | 2026-05-17T23:34Z | 2026-05-18T00:13Z | OK | dbedbc6 | 0 src + 4 exp | 75 | 75 | experiments/exp_h_rsf_vs_regressors_fair/summary.json |
-| phase_experiments_i_rsf_censored_ablation | in-session | 2026-05-18T01:00Z | 2026-05-18T01:21Z | OK | (pending) | 0 src + 3 exp | 75 | 75 | experiments/exp_i_rsf_censored_ablation/summary.json |
+| phase_experiments_i_rsf_censored_ablation | in-session | 2026-05-18T01:00Z | 2026-05-18T01:21Z | OK | 87ba00d | 0 src + 3 exp | 75 | 75 | experiments/exp_i_rsf_censored_ablation/summary.json |
+| phase_experiments_j_production_predictions | in-session | 2026-05-18T17:01Z | 2026-05-18T13:13Z | OK | (pending) | 0 src + 1 exp | 75 | 75 | experiments/exp_j_production_predictions/predictions.csv |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 

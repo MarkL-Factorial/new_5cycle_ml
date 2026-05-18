@@ -1,0 +1,107 @@
+{
+  "experiment": "exp_j_production_predictions",
+  "feature_subsets": {
+    "classifier": "fs_a_only",
+    "rsf": "fs_cv"
+  },
+  "baseline_cycle": 1,
+  "db_version": "A2.2",
+  "trials": 30,
+  "inner_cv": 5,
+  "seed": 0,
+  "n_total_cells": 415,
+  "n_faded": 187,
+  "n_censored": 228,
+  "models": {
+    "ebm_classifier_n200": {
+      "params": {
+        "max_bins": 512,
+        "max_interaction_bins": 24,
+        "interactions": 1,
+        "learning_rate": 0.0014103526854321563,
+        "min_samples_leaf": 18,
+        "max_leaves": 2
+      },
+      "inner_cv_auc_mean": 0.9121327283827283,
+      "inner_cv_auc_per_fold": [
+        0.9517045454545454,
+        0.8615384615384616,
+        0.8833333333333333,
+        0.9444444444444444,
+        0.9196428571428571
+      ],
+      "n_training_cells": 187,
+      "n_features": 3,
+      "label_n_pass": 121,
+      "label_n_fail": 66,
+      "tune_time_s": 365.4159686565399
+    },
+    "ebm_classifier_n300": {
+      "params": {
+        "max_bins": 448,
+        "max_interaction_bins": 24,
+        "interactions": 2,
+        "learning_rate": 0.00646974841745653,
+        "min_samples_leaf": 16,
+        "max_leaves": 2
+      },
+      "inner_cv_auc_mean": 0.8461531279178338,
+      "inner_cv_auc_per_fold": [
+        0.9271708683473389,
+        0.7888888888888889,
+        0.7,
+        0.9147058823529411,
+        0.8999999999999999
+      ],
+      "n_training_cells": 187,
+      "n_features": 3,
+      "label_n_pass": 96,
+      "label_n_fail": 91,
+      "tune_time_s": 177.46565699577332
+    },
+    "ebm_classifier_n400": {
+      "params": {
+        "max_bins": 128,
+        "max_interaction_bins": 16,
+        "interactions": 2,
+        "learning_rate": 0.004240665453647425,
+        "min_samples_leaf": 10,
+        "max_leaves": 3
+      },
+      "inner_cv_auc_mean": 0.8500768398268399,
+      "inner_cv_auc_per_fold": [
+        0.8782608695652174,
+        0.8494318181818181,
+        0.7866666666666666,
+        0.8850931677018634,
+        0.8509316770186336
+      ],
+      "n_training_cells": 187,
+      "n_features": 3,
+      "label_n_pass": 71,
+      "label_n_fail": 116,
+      "tune_time_s": 120.64253211021423
+    },
+    "rsf": {
+      "params": {
+        "n_estimators": 175,
+        "max_depth": 12,
+        "min_samples_split": 7,
+        "min_samples_leaf": 14,
+        "max_features": "sqrt"
+      },
+      "inner_cv_cindex_mean": 0.8035108495085437,
+      "inner_cv_cindex_per_fold": [
+        0.8322147651006712,
+        0.777504105090312,
+        0.7933289731850883,
+        0.8381294964028777,
+        0.7763769077637691
+      ],
+      "n_training_cells": 415,
+      "n_features": 12,
+      "t_cap": 1052.0,
+      "tune_time_s": 39.08526945114136
+    }
+  }
+}
