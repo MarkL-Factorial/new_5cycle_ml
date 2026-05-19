@@ -181,8 +181,10 @@ def _production(args: argparse.Namespace) -> int:
         out_root = Path(__file__).resolve().parents[2] / "results" / "run"
     out_root.mkdir(parents=True, exist_ok=True)
 
-    from datetime import datetime, timezone
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    # Use local wall-clock time so directory names match the operator's
+    # clock (file mtimes are local; mismatched UTC names cause confusion).
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     out_dir = out_root / timestamp
     out_dir.mkdir(parents=True, exist_ok=True)
 

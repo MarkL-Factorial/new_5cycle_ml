@@ -36,7 +36,7 @@ NS = (200, 300, 400)
 def plot_actual_vs_predicted(df: pd.DataFrame, out_path: Path) -> Path:
     """RSF median-survival vs actual cycle life, faded vs censored markers."""
     faded = df[df["status"] == "faded"]
-    censored = df[df["status"] == "censored"]
+    censored = df[df["status"] == "in_testing"]
 
     x_faded = faded["last_fade_cycle"].to_numpy()
     y_faded = faded["rsf_median_cycle"].to_numpy()
@@ -114,7 +114,7 @@ def plot_classifier_roc_confusion(df: pd.DataFrame, out_path: Path) -> Path:
         y_prob = sub[f"oof_prob_pass_n{N}"].to_numpy()
         y_pred = (y_prob >= 0.5).astype(int)
         n_faded = int((sub["status"] == "faded").sum())
-        n_censored = int((sub["status"] == "censored").sum())
+        n_censored = int((sub["status"] == "in_testing").sum())
 
         # ROC
         ax = axes[0, col]
@@ -177,7 +177,7 @@ def plot_classifier_prob_vs_cycle(df: pd.DataFrame, out_path: Path) -> Path:
         ax = axes[col]
         sub = df[df[f"in_training_set_n{N}"]].copy()
         faded = sub[sub["status"] == "faded"]
-        censored = sub[sub["status"] == "censored"]
+        censored = sub[sub["status"] == "in_testing"]
 
         # Faded — by true pass/fail
         f_cyc = faded["last_fade_cycle"].to_numpy()

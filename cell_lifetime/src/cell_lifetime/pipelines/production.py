@@ -1,10 +1,12 @@
 """Production orchestrator: 3 classifiers (N=200/300/400) + 1 RSF.
 
 Called by the `cell-lifetime production` CLI subcommand. Trains the
-canonical battery-of-models on the full trainable_n{N} cohort (per
-CONVENTIONS.md), runs inference on all 415 cells, and writes a wide
-`predictions.csv` plus best-params JSON, log, and 3 plots to a
-timestamped run directory.
+canonical battery-of-models on the trainable_n{N} cohort (per
+CONVENTIONS.md), runs inference on every cell admitted by the loader
+(459 in the A2.2_b1 May-19 bundle: 444 single_rate with n_reg≥5 plus
+15 rate_changed cells held out of training but scored for predict-only
+output), and writes a wide `predictions.csv` plus best-params JSON, log,
+and 3 plots to a timestamped run directory.
 
 Default seed strategy is K=5 INDEPENDENT ensembling: each ensemble
 member runs its own Optuna study (different inner-CV partition →
@@ -51,9 +53,12 @@ def setup_logging(out_dir: Path) -> Path:
     root.setLevel(logging.INFO)
     for h in list(root.handlers):
         root.removeHandler(h)
+    # Local wall-clock time (matches run-directory timestamp). Python's
+    # logging.Formatter defaults to local time; the previous Z suffix
+    # falsely advertised UTC.
     fmt = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%SZ",
+        datefmt="%Y-%m-%dT%H:%M:%S",
     )
     fh = logging.FileHandler(log_path, mode="w")
     fh.setFormatter(fmt)
@@ -259,7 +264,13 @@ def _log_overfit_diagnostics(log, df: pd.DataFrame,
 
 # ---------- Ground-truth pass labels ---------------------------------------
 
-def _true_pass(event: bool, last_fade: float, n_reg: int, N: int) -> float:
+def _true_pass(status: str, event: bool, last_fade: float, n_reg: int, N: int) -> float:
+    # Excluded cells (rate_changed admitted for inference only) have no
+    # honest ground-truth label: their n_regular counts cycles across mixed
+    # rate regimes, so n_reg >= N does NOT mean the cell healthily survived
+    # to N. Upstream sets label_n{N}='excluded' for exactly this reason.
+    if status == "excluded":
+        return float("nan")
     if event:
         return 1.0 if last_fade >= N else 0.0
     if n_reg >= N:
@@ -308,14 +319,19 @@ def run_production(
     seeds = list(range(K))
 
     # ---- Load RSF data once ------------------------------------------------
-    # Production load uses min_n_regular=5 so we PREDICT on cells with
-    # n_regular≥5 (per CONVENTIONS.md). Cells with n_regular<6 will be
-    # filtered OUT of training masks below — they only get predictions.
-    log.info(f"Loading RSF dataset (feature_subset={rsf_feature_subset}, min_n_regular=5)…")
+    # Production load uses min_n_regular=5, drop_excluded=False so we PREDICT
+    # on cells with n_regular≥5 INCLUDING status='excluded' cells (rate_changed
+    # cells that upstream admitted to cell_features.parquet — see
+    # CONVENTIONS.md). Training masks below AND with status!='excluded' so
+    # those cells flow through inference only, never into training.
+    log.info(
+        f"Loading RSF dataset (feature_subset={rsf_feature_subset}, "
+        f"min_n_regular=5, drop_excluded=False)…"
+    )
     ds_cv = load_dataset(
         N=300, feature_subset=rsf_feature_subset,
         baseline_cycle=baseline_cycle, db_version=db_version,
-        min_n_regular=5,
+        min_n_regular=5, drop_excluded=False,
     )
     n_total = len(ds_cv)
     n_faded = int(ds_cv.event.sum())
@@ -330,14 +346,25 @@ def run_production(
     y_cycle_all = ds_cv.y_cycle.astype(float)
     cell_names = ds_cv.cell_names
     n_regular_all = ds_cv.n_regular.astype(np.int64)
+    status_all = ds_cv.status
+    excl_all = ds_cv.exclusion_reason
 
-    # Training mask for tasks that require n_regular>=6 (the canonical
-    # cell_lifetime training cutoff). Inference happens on the full
-    # n_total cells; only training is restricted.
-    train_eligible = (n_regular_all >= 6)
+    # Training mask: n_regular>=6 (canonical training cutoff) AND
+    # status!='excluded' (rate_changed cells admitted upstream for inference
+    # only). The status check is load-bearing — without it, rate_changed cells
+    # with large lifetime n_regular (e.g. AR4142=639) would slip into RSF
+    # training. Inference happens on the full n_total cells.
+    train_eligible = (n_regular_all >= 6) & (status_all != "excluded")
+    n_inference_only_low_nreg = int(
+        ((n_regular_all < 6) & (status_all != "excluded")).sum()
+    )
+    n_inference_only_excluded = int((status_all == "excluded").sum())
     log.info(
-        f"Training-eligible cells (n_regular>=6): {int(train_eligible.sum())}/"
-        f"{n_total}; inference-only (n_regular=5): {int((~train_eligible).sum())}"
+        f"Training-eligible cells (n_regular>=6 & not excluded): "
+        f"{int(train_eligible.sum())}/{n_total}; "
+        f"inference-only n_regular=5: {n_inference_only_low_nreg}; "
+        f"inference-only status='excluded' (rate_changed admitted): "
+        f"{n_inference_only_excluded}"
     )
 
     # ---- Per-N classifier training (independent K-seed ensemble) ----------
@@ -350,7 +377,7 @@ def run_production(
         ds_N = load_dataset(
             N=N, feature_subset=classifier_feature_subset,
             baseline_cycle=baseline_cycle, db_version=db_version,
-            min_n_regular=5,
+            min_n_regular=5, drop_excluded=False,
         )
         assert (ds_N.cell_names == cell_names).all(), \
             f"N={N} loader returned different cell ordering than RSF load"
@@ -358,6 +385,8 @@ def run_production(
             f"N={N} loader returned different event array than RSF load"
         assert (ds_N.n_regular == n_regular_all).all(), \
             f"N={N} loader returned different n_regular than RSF load"
+        assert (ds_N.status == status_all).all(), \
+            f"N={N} loader returned different status array than RSF load"
 
         X_all_N = ds_N.X.reset_index(drop=True)
         label_mask = ds_N.label_mask.astype(bool)
@@ -510,6 +539,7 @@ def run_production(
     true_pass = {
         N: np.array([
             _true_pass(
+                str(status_all[i]),
                 bool(event_all[i]),
                 float(y_cycle_all[i]) if event_all[i] else float("nan"),
                 int(n_regular_all[i]),  # true n_regular per cell (≠ time for faded)
@@ -522,7 +552,8 @@ def run_production(
 
     df = pd.DataFrame({
         "cell_name": cell_names,
-        "status": np.where(event_all, "faded", "censored"),
+        "status": status_all,
+        "exclusion_reason": excl_all,
         "event": event_all,
         "last_fade_cycle": np.where(event_all, y_cycle_all, np.nan),
         "n_regular": n_regular_all,
