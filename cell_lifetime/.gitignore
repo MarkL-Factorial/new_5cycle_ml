@@ -18,6 +18,8 @@ htmlcov/
 # Run artifacts — local + cloud routine outputs (also covered by root .gitignore)
 run_logs/
 out/
+# Production runs land under results/run/<YYYYMMDD_HHMM>/ — never committed.
+# Reproducible from committed script + dataset; use `git add -f` to preserve a milestone.
 results/
 
 # Jupyter

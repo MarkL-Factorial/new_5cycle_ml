@@ -1,8 +1,9 @@
-"""CLI entry point: `cell-lifetime run|sweep`.
+"""CLI entry point: `cell-lifetime run|production`.
 
-Simpler than cell_classifier's CLI for Phase 1 — only `tune_inner_cv`
-protocol is wired, and the `--task` axis selects the appropriate model
-target/metric branch. Sweep arrives in later phases.
+Subcommands:
+  - `run`         — single experiment with 80/20 stratified holdout (research surface)
+  - `production`  — full production fit on trainable_n{N}, write per-cell predictions
+                    to `cell_lifetime/results/run/<YYYYMMDD_HHMM>/`
 """
 
 from __future__ import annotations
@@ -143,15 +144,90 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_production_parser(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--trials", type=int, default=30,
+                   help="Optuna trials per ensemble member (default 30)")
+    p.add_argument("--inner-cv", type=int, default=5,
+                   help="K for KFold inner CV (default 5)")
+    p.add_argument("--ensemble-seeds", type=int, default=5,
+                   help="K for independent ensemble (default 5; K=1 disables ensembling)")
+    p.add_argument("--baseline-cycle", type=int, default=1, choices=[1, 2, 3, 4])
+    p.add_argument("--db-version", default="A2.2")
+    p.add_argument("--classifier-feature-subset", default="fs_a_only")
+    p.add_argument("--rsf-feature-subset", default="fs_cv")
+    p.add_argument("--out-root", default=None,
+                   help="default: cell_lifetime/results/run")
+    p.add_argument("--no-plots", action="store_true",
+                   help="skip plot rendering")
+    p.add_argument("--smoke", action="store_true",
+                   help="fast mode: --trials 5 --inner-cv 3 --ensemble-seeds 1")
+
+
+def _production(args: argparse.Namespace) -> int:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+
+    trials = args.trials
+    inner_cv = args.inner_cv
+    ensemble_seeds = args.ensemble_seeds
+    if args.smoke:
+        trials = 5
+        inner_cv = 3
+        ensemble_seeds = 1
+
+    if args.out_root:
+        out_root = Path(args.out_root)
+    else:
+        out_root = Path(__file__).resolve().parents[2] / "results" / "run"
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    from datetime import datetime, timezone
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    out_dir = out_root / timestamp
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    from cell_lifetime.pipelines.production import run_production
+    summary = run_production(
+        out_dir=out_dir,
+        trials=trials,
+        inner_cv=inner_cv,
+        ensemble_seeds=ensemble_seeds,
+        baseline_cycle=args.baseline_cycle,
+        db_version=args.db_version,
+        classifier_feature_subset=args.classifier_feature_subset,
+        rsf_feature_subset=args.rsf_feature_subset,
+        make_plots=not args.no_plots,
+    )
+
+    # Update / create `latest` symlink pointing to the new run.
+    latest = out_root / "latest"
+    if latest.is_symlink() or latest.exists():
+        try:
+            latest.unlink()
+        except OSError:
+            pass
+    latest.symlink_to(out_dir.name)
+    print(json.dumps({"out_dir": str(out_dir), "summary": summary}, indent=2,
+                     default=str))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="cell-lifetime")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    run_p = sub.add_parser("run", help="run a single experiment")
+    run_p = sub.add_parser("run", help="run a single experiment (holdout)")
     _build_run_parser(run_p)
+    prod_p = sub.add_parser(
+        "production",
+        help="full production fit on trainable_n{N}; predictions on all cells",
+    )
+    _build_production_parser(prod_p)
 
     args = ap.parse_args(argv)
     if args.cmd == "run":
         return _run(args)
+    if args.cmd == "production":
+        return _production(args)
     raise SystemExit(f"[error] unknown subcommand {args.cmd!r}")
 
 
