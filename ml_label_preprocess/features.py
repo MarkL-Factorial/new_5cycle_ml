@@ -504,16 +504,28 @@ def _check_omit(
     ``cycles_window`` is the slice of cycles 1..5 whose ``regular_cycle``
     is >= baseline_cycle (length = 6 − N0).
 
-    Omission rules (unchanged from v1 — keeps the cell pool identical
-    across baselines so per-baseline outputs are apples-to-apples):
-      - cycling_consistency != 'single_rate' (rate_changed / no_regular)
-      - <5 regular_cd events
-      - no event with regular_cycle == 1 (no v1 baseline anchor)
-      - baseline-cycle event missing or has null/non-positive capacity
-      - any cycle in 1..5 has null CE or null capacity (Tier-A inputs)
+    Omission rules (kept apples-to-apples across baselines):
+      - cycling_consistency in {single_rate, rate_changed-with-first-regime>=5}:
+        admitted. rate_changed cells are featurized on cycles 1..5 which
+        are guaranteed to lie within regime[0] (toolkit-ordered regimes,
+        regular_cycle being a 1-based linear counter over regular_cd
+        events). These cells are still status='excluded' on the label
+        side — they flow through for prediction-only scoring.
+      - cycling_consistency == rate_changed but regime[0].n_regular_cd < 5:
+        omitted (the feature window would span a rate change).
+      - cycling_consistency == no_regular: omitted.
+      - <5 regular_cd events: omitted.
+      - no event with regular_cycle == 1: omitted (no v1 baseline anchor).
+      - baseline-cycle event missing or has null/non-positive capacity: omitted.
+      - any cycle in 1..5 has null CE or null capacity (Tier-A inputs): omitted.
     """
     consistency = d.get("cycling_consistency", "no_regular")
-    if consistency != "single_rate":
+    if consistency == "rate_changed":
+        rr = d.get("regular_rate_regimes", [])
+        if not rr or (rr[0].get("n_regular_cd") or 0) < 5:
+            return None
+        # fall through: cycles 1..5 are guaranteed to be in regime[0]
+    elif consistency != "single_rate":
         return None
 
     regulars = iter_regulars(d)
@@ -911,11 +923,62 @@ def _selftest_omission() -> int:
         print("  [FAIL] short cell (3 cycles) not omitted")
         fail += 1
 
-    # rate_changed
-    d_rc = {"cell_name": "AR-rc", "cycling_consistency": "rate_changed", "cd_events": []}
-    row, _ = _process_cell_features(d_rc)
+    # rate_changed with empty regimes (no cycling at all) → omitted
+    d_rc_empty = {"cell_name": "AR-rc-empty", "cycling_consistency": "rate_changed",
+                  "regular_rate_regimes": [], "cd_events": []}
+    row, _ = _process_cell_features(d_rc_empty)
     if row is not None:
-        print("  [FAIL] rate_changed cell not omitted")
+        print("  [FAIL] rate_changed with no regimes not omitted")
+        fail += 1
+
+    # rate_changed with regime[0].n_regular_cd < 5 → omitted (would feature
+    # across the rate boundary)
+    d_rc_short_first = {
+        "cell_name": "AR-rc-short-first",
+        "cycling_consistency": "rate_changed",
+        "regular_rate_regimes": [
+            {"seg_id": 0, "n_regular_cd": 3, "baseline_i_a": 0.1,
+             "baseline_i_dis_a": 0.1, "frac_of_total_regulars": 0.3},
+            {"seg_id": 0, "n_regular_cd": 7, "baseline_i_a": 0.04,
+             "baseline_i_dis_a": 0.04, "frac_of_total_regulars": 0.7},
+        ],
+        "cd_events": [
+            {"event_kind": "regular_cd", "regular_cycle": i,
+             "capacity_discharge_ah": 1.0 - 0.01 * i,
+             "capacity_charge_ah": 1.0 - 0.005 * i,
+             "coulombic_efficiency": 0.99}
+            for i in range(1, 11)
+        ],
+    }
+    row, _ = _process_cell_features(d_rc_short_first)
+    if row is not None:
+        print("  [FAIL] rate_changed with regime[0].n=3 not omitted")
+        fail += 1
+
+    # rate_changed with regime[0].n_regular_cd >= 5 → ADMITTED. The feature
+    # window covers cycles 1..5, all at the original rate. The cell still
+    # gets status='excluded' on the LABEL side, but the FEATURE row exists
+    # for downstream production-inference scoring.
+    d_rc_admitted = {
+        "cell_name": "AR-rc-admitted",
+        "cycling_consistency": "rate_changed",
+        "regular_rate_regimes": [
+            {"seg_id": 0, "n_regular_cd": 5, "baseline_i_a": 0.1,
+             "baseline_i_dis_a": 0.1, "frac_of_total_regulars": 0.5},
+            {"seg_id": 0, "n_regular_cd": 5, "baseline_i_a": 0.04,
+             "baseline_i_dis_a": 0.04, "frac_of_total_regulars": 0.5},
+        ],
+        "cd_events": [
+            {"event_kind": "regular_cd", "regular_cycle": i,
+             "capacity_discharge_ah": 1.0 - 0.01 * i,
+             "capacity_charge_ah": 1.0 - 0.005 * i,
+             "coulombic_efficiency": 0.99}
+            for i in range(1, 11)
+        ],
+    }
+    row, _ = _process_cell_features(d_rc_admitted)
+    if row is None:
+        print("  [FAIL] rate_changed with regime[0].n=5 omitted (should be admitted)")
         fail += 1
 
     # missing cycle 1

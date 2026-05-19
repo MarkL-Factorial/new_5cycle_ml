@@ -43,7 +43,7 @@ appear; filenames inside the bundle stay fixed. `manifest.json` looks like:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "db_version": "A2.2",
   "baseline_cycle": 3,
   "annot_dir": "/mnt/data/mliao/battery-ml-workbench/data/A2.2/annotations",
@@ -79,7 +79,7 @@ sharing one CLI dispatcher.
 
 | Pipeline | Entry | Files in bundle | Workbench-app needed? |
 |---|---|---|---|
-| labels   | `python preprocess.py` (default) or `--labels`   | `cell_labels.{parquet,csv}` (11 status cols + 6 per-N classification cols) | no |
+| labels   | `python preprocess.py` (default) or `--labels`   | `cell_labels.{parquet,csv}` (12 status cols + 6 per-N classification cols) | no |
 | features | `python preprocess.py --features` | `cell_features.{parquet,csv}` + `cell_features_status.csv` | yes |
 
 Every run writes into `datasets/{db_version}_b{baseline_cycle}/` and
@@ -130,7 +130,7 @@ preprocess.py            CLI dispatcher (thin) — --baseline-cycle, --db-versio
 labels.py                Fade-status + per-N classification labels
 features.py              41-column per-cell feature extraction (Tiers A/B/C complete)
 _common.py               Shared: paths, _cohort, annotation iteration, dataset_dir_for, write_manifest
-column_roles.yaml        Schema manifest (schema_version: 1)
+column_roles.yaml        Schema manifest (schema_version: 2)
 datasets/                Output bundles, one per (db_version, baseline_cycle)
 ```
 
@@ -299,6 +299,65 @@ The `trainable_n{N}` flag is the single source of truth for which rows
 to keep — it filters out both `censor` (unknown outcome) and `excluded`
 (unusable cell) in one step. Do not train on rows where it is False.
 
+## Rate-changed cells: predict-only admission (schema v2)
+
+Cells whose annotation toolkit classification is
+`cycling_consistency == 'rate_changed'` cannot be trained on — their
+retention curve mixes capacities measured at different rates, so the
+fade detector cannot run honestly. But if the **first** rate regime
+spans cycles 1..5 entirely (i.e. `regime[0].n_regular_cd >= 5` in the
+annotation JSON), the cell's 5-cycle feature window is rate-consistent
+and the cell is admitted to `cell_features.parquet` for production-
+inference scoring only.
+
+These cells have, on the **labels** side:
+- `status='excluded'`, `exclusion_reason='rate_changed'`
+- `trainable_n{N}=False` for every N (training filters reject them)
+- `last_fade_cycle=None`, `final_retention=None` (not meaningful)
+- `n_regular` = lifetime regular count (same formula as single_rate
+  cells — the cell really did run that many cycles, just at different
+  rates). This lets the downstream asymmetric `n_regular >= 5` predict
+  filter in `cell_lifetime` admit the row for scoring.
+- `baseline_dis_ah` populated from cycle N0 (well-defined; cycles 1..N0
+  are at the original rate)
+- `n_regular_pre_rate_change = regime[0].n_regular_cd` — diagnostic
+  count of cycles before the rate first changed
+
+And on the **features** side, a normal Tier A/B/C row computed from
+cycles 1..5 (all at the original rate).
+
+For rate_changed cells whose first regime is shorter than 5 (would mean
+the rate change happened on or before cycle 5), the cell stays fully
+excluded: no feature row, `n_regular=0`, only
+`n_regular_pre_rate_change` is populated as a diagnostic.
+
+The diagnostic column on **all** cells:
+
+| `cycling_consistency` | `n_regular_pre_rate_change` |
+|---|---|
+| `single_rate`   | `null` (no rate change ever happened) |
+| `rate_changed` (admitted) | `regime[0].n_regular_cd` (>= 5) |
+| `rate_changed` (excluded) | `regime[0].n_regular_cd` (< 5) |
+| `no_regular`    | `null` (no regimes detected) |
+
+Note: single_rate cells can still have many regimes in the annotation
+JSON (the toolkit splits regimes at RPT-segment boundaries even when
+rates are similar — so `regime[0].n_regular_cd` is not the cell's
+lifetime count for those cells). The column intentionally returns null
+for them to keep its "pre-rate-change" semantics unambiguous; use the
+`n_regular` column for lifetime counts.
+
+To recover the "fully featurizable, training-eligible" subset:
+
+```python
+predict_only = (labels["status"] == "excluded") & (labels["n_regular"] >= 5)
+train_eligible = labels[f"trainable_n{N}"]
+```
+
+A2.2 ground truth (as of 2026-05-19): all 9 rate_changed cells in A2.2
+satisfy the admission gate (`regime[0].n_regular_cd ∈ {5, 5, 5, 5, 5, 5,
+5, 82, 437}`), so all 9 flow through to `cell_features.parquet`.
+
 ## Implementation stages
 
 The features pipeline was built in three stages (see
@@ -356,7 +415,7 @@ import polars as pl
 
 bundle = Path("ml_label_preprocess_v3/datasets/A2.2_b1")
 manifest = json.loads((bundle / "manifest.json").read_text())
-assert manifest["schema_version"] == 1
+assert manifest["schema_version"] == 2
 labels   = pl.read_parquet(bundle / "cell_labels.parquet")
 features = pl.read_parquet(bundle / "cell_features.parquet")
 ```

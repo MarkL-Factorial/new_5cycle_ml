@@ -5,13 +5,26 @@ computes the per-cell ground-truth label that downstream ML uses as its
 target, and writes one row per cell to out/cell_labels.{parquet,csv}.
 
 Label semantics:
-  - excluded   : cell can't be used for ML
+  - excluded   : cell can't be used for ML training
                  (cycling_consistency = rate_changed | no_regular,
-                  or no usable baseline)
+                  or no usable baseline). Some excluded cells DO get a
+                 feature row and a meaningful n_regular — see the
+                 "rate_changed featurizable" sub-class below — to support
+                 production-inference scoring.
   - faded      : cell's retention dropped below 0.85 and stayed there;
                  last_fade_cycle records the regular_cycle ordinal of the
                  LAST crossing into bad (point of no return)
   - in_testing : cell is still healthy (no irrecoverable fade observed)
+
+Rate_changed sub-class (schema_version=2): cells with
+``cycling_consistency='rate_changed'`` are still status='excluded' (their
+retention curve mixes capacities at different rates, so the fade
+detector can't run honestly). But if ``regime[0].n_regular_cd >= 5``
+(the first rate-regime is long enough to cover cycles 1..5), the cell
+appears in ``cell_features.parquet`` AND gets a populated
+``n_regular`` (lifetime regular count) + ``baseline_dis_ah`` so the
+downstream asymmetric ``predict_min_n_regular=5`` filter admits it for
+scoring. ``trainable_n{N}=False`` keeps the cell out of training.
 
 Fade rule (last crossing into the permanently-bad regime):
   last_fade_cycle = cycle of the LAST 'crossing into bad' (cycle c where
@@ -46,7 +59,7 @@ from _common import (
 )
 
 DEFAULT_BASELINE_CYCLE = 1
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 RETENTION_THRESHOLD = 0.85
 RECOVERY_MIN = 3
@@ -149,11 +162,31 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
     protocol = d.get("protocol_pattern", "other")
     cohort = _cohort(cell)
 
+    # Rate-truncation diagnostic. Populated ONLY for rate_changed cells:
+    # the count of regular_cd events before the first rate change
+    # (= regime[0].n_regular_cd from the toolkit's time-ordered regime
+    # list). Null for single_rate and no_regular cells because the
+    # column's concept ("cycles before the rate changed") doesn't apply
+    # to them. For rate_changed cells this is the eligibility key for
+    # featurization (see features.py::_check_omit: >= 5 → featurized).
+    #
+    # Note: even single_rate cells can have multiple regimes (toolkit
+    # splits per-RPT-segment), so regime[0].n_regular_cd is NOT the
+    # cell's lifetime n_regular in general — populating this column
+    # for single_rate cells would just confuse readers.
+    regimes = d.get("regular_rate_regimes") or []
+    n_pre_rate_change: Optional[int] = (
+        int(regimes[0]["n_regular_cd"])
+        if (consistency == "rate_changed" and regimes)
+        else None
+    )
+
     base_row = {
         "cell_name": cell,
         "cohort": cohort,
         "protocol_pattern": protocol,
         "cycling_consistency": consistency,
+        "n_regular_pre_rate_change": n_pre_rate_change,
         "status": "excluded",
         "exclusion_reason": None,
         "last_fade_cycle": None,
@@ -170,6 +203,27 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
 
     if consistency == "rate_changed":
         base_row["exclusion_reason"] = "rate_changed"
+        # Predict-only enrichment for cells whose original-rate window
+        # covers cycles 1..5 (matches features.py::_check_omit's
+        # admission gate). We populate n_regular (lifetime count) and
+        # baseline_dis_ah so the downstream asymmetric n_regular>=5
+        # filter admits the row; status / trainable_n{N} stay at the
+        # excluded defaults so training never sees these cells.
+        if n_pre_rate_change is not None and n_pre_rate_change >= 5:
+            regulars = iter_regulars(d)
+            baseline_evt = next(
+                (e for e in regulars if e["regular_cycle"] == baseline_cycle), None
+            )
+            if (
+                regulars
+                and baseline_evt is not None
+                and baseline_evt.get("capacity_discharge_ah") is not None
+                and baseline_evt["capacity_discharge_ah"] > 0
+            ):
+                base_row["n_regular"] = int(regulars[-1]["regular_cycle"])
+                base_row["baseline_dis_ah"] = float(
+                    baseline_evt["capacity_discharge_ah"]
+                )
         return base_row
 
     if consistency == "no_regular":
@@ -318,6 +372,150 @@ def selftest() -> int:
         print("All self-test cases PASSED")
     fail += _selftest_classification()
     fail += _selftest_baseline_cycle()
+    fail += _selftest_rate_changed()
+    return fail
+
+
+def _selftest_rate_changed() -> int:
+    """Verify _process_cell handles rate_changed cells correctly.
+
+    Three cases:
+      (1) rate_changed cell whose first rate regime covers cycles 1..5+
+          (admitted to predict-only: n_regular > 0, baseline populated).
+      (2) rate_changed cell whose first regime stops at cycle 3 (still
+          fully excluded: n_regular = 0, baseline_dis_ah = None).
+      (3) single_rate cell with an explicit regime list — should populate
+          n_regular_pre_rate_change = total regulars (single regime
+          covers everything).
+    """
+    print("Self-test (rate_changed):")
+    fail = 0
+
+    def _events(n):
+        return [
+            {"event_kind": "regular_cd", "regular_cycle": i,
+             "capacity_discharge_ah": 1.0 - 0.005 * (i - 1),
+             "capacity_charge_ah": 1.0 - 0.004 * (i - 1),
+             "coulombic_efficiency": 0.99}
+            for i in range(1, n + 1)
+        ]
+
+    # Case 1: rate_changed, regime[0].n=5, 10 total regulars → ADMITTED
+    d1 = {
+        "cell_name": "AR-rc-pass",
+        "cycling_consistency": "rate_changed",
+        "regular_rate_regimes": [
+            {"seg_id": 0, "n_regular_cd": 5, "baseline_i_a": 0.10,
+             "baseline_i_dis_a": 0.10, "frac_of_total_regulars": 0.5},
+            {"seg_id": 0, "n_regular_cd": 5, "baseline_i_a": 0.04,
+             "baseline_i_dis_a": 0.04, "frac_of_total_regulars": 0.5},
+        ],
+        "cd_events": _events(10),
+    }
+    row = _process_cell(d1, baseline_cycle=1)
+    if row["status"] != "excluded":
+        print(f"  [FAIL] rc-pass: status={row['status']} expected 'excluded'")
+        fail += 1
+    if row["exclusion_reason"] != "rate_changed":
+        print(f"  [FAIL] rc-pass: exclusion_reason={row['exclusion_reason']} expected 'rate_changed'")
+        fail += 1
+    if row["n_regular"] != 10:
+        print(f"  [FAIL] rc-pass: n_regular={row['n_regular']} expected 10")
+        fail += 1
+    if row["n_regular_pre_rate_change"] != 5:
+        print(f"  [FAIL] rc-pass: n_regular_pre_rate_change={row['n_regular_pre_rate_change']} expected 5")
+        fail += 1
+    if row["baseline_dis_ah"] is None or abs(row["baseline_dis_ah"] - 1.0) > 1e-9:
+        print(f"  [FAIL] rc-pass: baseline_dis_ah={row['baseline_dis_ah']} expected 1.0")
+        fail += 1
+    if row["final_retention"] is not None:
+        print(f"  [FAIL] rc-pass: final_retention={row['final_retention']} expected None")
+        fail += 1
+    if row["last_fade_cycle"] is not None:
+        print(f"  [FAIL] rc-pass: last_fade_cycle={row['last_fade_cycle']} expected None")
+        fail += 1
+    for N in N_THRESHOLDS:
+        if row[f"label_n{N}"] != "excluded":
+            print(f"  [FAIL] rc-pass: label_n{N}={row[f'label_n{N}']} expected 'excluded'")
+            fail += 1
+        if row[f"trainable_n{N}"]:
+            print(f"  [FAIL] rc-pass: trainable_n{N}={row[f'trainable_n{N}']} expected False")
+            fail += 1
+
+    # Case 2: rate_changed, regime[0].n=3 → still fully excluded
+    d2 = {
+        "cell_name": "AR-rc-short",
+        "cycling_consistency": "rate_changed",
+        "regular_rate_regimes": [
+            {"seg_id": 0, "n_regular_cd": 3, "baseline_i_a": 0.10,
+             "baseline_i_dis_a": 0.10, "frac_of_total_regulars": 0.3},
+            {"seg_id": 0, "n_regular_cd": 7, "baseline_i_a": 0.04,
+             "baseline_i_dis_a": 0.04, "frac_of_total_regulars": 0.7},
+        ],
+        "cd_events": _events(10),
+    }
+    row2 = _process_cell(d2, baseline_cycle=1)
+    if row2["status"] != "excluded":
+        print(f"  [FAIL] rc-short: status={row2['status']} expected 'excluded'")
+        fail += 1
+    if row2["n_regular"] != 0:
+        print(f"  [FAIL] rc-short: n_regular={row2['n_regular']} expected 0")
+        fail += 1
+    if row2["n_regular_pre_rate_change"] != 3:
+        print(f"  [FAIL] rc-short: n_regular_pre_rate_change={row2['n_regular_pre_rate_change']} expected 3")
+        fail += 1
+    if row2["baseline_dis_ah"] is not None:
+        print(f"  [FAIL] rc-short: baseline_dis_ah={row2['baseline_dis_ah']} expected None")
+        fail += 1
+
+    # Case 3: single_rate with an explicit regime list (multi-regime
+    # single_rate cells exist — toolkit splits per-RPT-segment). The
+    # diagnostic column is NULL for single_rate cells regardless: the
+    # "pre rate change" concept doesn't apply.
+    d3 = {
+        "cell_name": "AR-sr",
+        "cycling_consistency": "single_rate",
+        "regular_rate_regimes": [
+            {"seg_id": 0, "n_regular_cd": 5, "baseline_i_a": 0.10,
+             "baseline_i_dis_a": 0.10, "frac_of_total_regulars": 0.71},
+            {"seg_id": 1, "n_regular_cd": 2, "baseline_i_a": 0.10,
+             "baseline_i_dis_a": 0.10, "frac_of_total_regulars": 0.29},
+        ],
+        "cd_events": _events(7),
+    }
+    row3 = _process_cell(d3, baseline_cycle=1)
+    if row3["status"] != "in_testing":
+        print(f"  [FAIL] sr: status={row3['status']} expected 'in_testing'")
+        fail += 1
+    if row3["n_regular"] != 7:
+        print(f"  [FAIL] sr: n_regular={row3['n_regular']} expected 7")
+        fail += 1
+    if row3["n_regular_pre_rate_change"] is not None:
+        print(f"  [FAIL] sr: n_regular_pre_rate_change={row3['n_regular_pre_rate_change']} expected None")
+        fail += 1
+
+    # Case 4: no_regular (no regimes) → n_regular_pre_rate_change = None
+    d4 = {
+        "cell_name": "AR-nr",
+        "cycling_consistency": "no_regular",
+        "regular_rate_regimes": [],
+        "cd_events": [],
+    }
+    row4 = _process_cell(d4, baseline_cycle=1)
+    if row4["status"] != "excluded":
+        print(f"  [FAIL] nr: status={row4['status']} expected 'excluded'")
+        fail += 1
+    if row4["exclusion_reason"] != "no_regular":
+        print(f"  [FAIL] nr: exclusion_reason={row4['exclusion_reason']} expected 'no_regular'")
+        fail += 1
+    if row4["n_regular_pre_rate_change"] is not None:
+        print(f"  [FAIL] nr: n_regular_pre_rate_change={row4['n_regular_pre_rate_change']} expected None")
+        fail += 1
+
+    if fail:
+        print(f"\n{fail} rate_changed self-test cases FAILED")
+    else:
+        print("All rate_changed self-test cases PASSED")
     return fail
 
 

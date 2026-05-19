@@ -1,10 +1,12 @@
-schema_version: 1
+schema_version: 2
 description: |
   Column-role manifest for ml_label_preprocess outputs.
 
-  schema_version: bump whenever the column set or roles change. v3 keeps
-  the same 41-column cell_features schema and 17-column cell_labels
-  schema as v2, so schema_version stays at 1.
+  schema_version: bump whenever the column set or roles change.
+    v1 → v2 (2026-05-19): added n_regular_pre_rate_change (meta) to
+    cell_labels so downstream consumers can identify rate-truncated
+    cells that flow through to cell_features for prediction-only
+    scoring. cell_features schema is unchanged.
 
   Each column belongs to exactly ONE role. Downstream ML training
   scripts MUST consult this manifest to filter columns by role,
@@ -76,12 +78,44 @@ datasets:
         dtype: string
         note: |
           Upstream toolkit classification of the cell's protocol pattern
-          (single_rate / rate_changed / no_regular). Already used by
-          features.py as an eligibility filter (only single_rate cells
-          get feature rows). Known at prediction time → safe to expose,
+          (single_rate / rate_changed / no_regular). Used by features.py
+          as an eligibility filter: single_rate cells always get feature
+          rows; rate_changed cells get a feature row IFF
+          regime[0].n_regular_cd >= 5 (the first-rate window covers all
+          of cycles 1..5). Known at prediction time → safe to expose,
           but we still don't train on it (avoids protocol-confound
           shortcuts where the model just learns "this protocol always
           fades fast").
+      - name: n_regular_pre_rate_change
+        role: meta
+        dtype: int
+        nullable: true
+        note: |
+          For rate_changed cells: number of regular_cd events at the
+          original (first-encountered) rate — i.e. regime[0].n_regular_cd
+          from the annotation JSON. The first cycle at the NEW rate is
+          regular_cycle == n_regular_pre_rate_change + 1.
+
+          NULL for single_rate and no_regular cells: the "pre rate
+          change" concept does not apply (no rate change ever
+          happened). Note: single_rate cells can still have multiple
+          regimes in the JSON because the toolkit splits regimes at
+          RPT-segment boundaries even when rates are similar — so
+          regime[0].n_regular_cd does NOT equal the cell's lifetime
+          n_regular for those cells. Always use the n_regular column
+          for lifetime counts; this column is exclusively a
+          rate-truncation diagnostic.
+
+          Eligibility: rate_changed cells with
+          n_regular_pre_rate_change >= 5 are featurizable on cycles
+          1..5 (entire feature window at the original rate) — they
+          appear in cell_features.parquet with status='excluded' on
+          the label side (predict-only scoring).
+
+          Known at prediction time (derived from the cycling protocol,
+          not from observing past cycle 5). Safe as a row-eligibility /
+          stratification signal; NOT a training feature (it correlates
+          with protocol cohort, which would confound the model).
       - name: status
         role: label
         dtype: string
@@ -168,7 +202,7 @@ datasets:
     path: datasets/{db_version}_b{baseline_cycle}/cell_features.parquet
     one_row_per: cell
     sort_order: [cell_name]
-    filter: "n_regular >= 5 AND first regular_cycle == 1 AND baselines > 0"
+    filter: "(consistency == 'single_rate' OR (consistency == 'rate_changed' AND regime[0].n_regular_cd >= 5)) AND first regular_cycle == 1 AND baselines > 0 AND cycles 1..5 fully populated"
     note: |
       Intentionally minimal schema: ONLY cell_name (join key) plus the
       40 feature columns. Cohort / protocol_pattern / baselines live in
