@@ -7,16 +7,47 @@ explicitly noted as an ablation.
 
 ## Canonical training sets, per task
 
+All training requires `n_regular ≥ 6` (the feature-stability cutoff,
+applied at load time via `min_n_regular=6` — the loader's default).
+Cells with fewer cycles haven't expressed their degradation behaviour
+and would inject noise.
+
 | Task | Training set | Loader accessor | Approx. n (A2.2_b1) |
 |---|---|---|---|
-| Classification (binary at N) | **`trainable_n{N}` cells** — every cell with a definitive pass/fail label at N: faded cells (known cycle_life) ∪ censored cells with `n_regular ≥ N` (definitively pass). | `ds.label_mask` or `ds.view_for_task("classification")` after `load_dataset(N=N, …)` | **291** (N=200) / **250** (N=300) / **236** (N=400) |
-| Regression (continuous cycle life) | **Faded cells only** — censored cells have unknown cycle_life and can't be used as regression targets. | `ds.faded_mask` or `ds.view_for_task("regression")` | **187** |
-| Survival (RSF, XGB-AFT, etc.) | **All 415 cells** — both faded (event=1) and censored (event=0). Survival models consume censoring natively via `(time, event)`. | `ds.view_for_task("survival")` returns no-op mask; pass full arrays | **415** |
+| Classification (binary at N) | **`trainable_n{N}` cells with n_regular ≥ 6** — faded cells (known cycle_life) ∪ censored cells with `n_regular ≥ N` (definitively pass), further restricted to n_regular ≥ 6. | `ds.label_mask & (ds.n_regular >= 6)` after `load_dataset(N=N, …)` | **291** (N=200) / **250** (N=300) / **236** (N=400) |
+| Regression (continuous cycle life) | **Faded cells with n_regular ≥ 6 only** — censored cells have unknown cycle_life and can't be used as regression targets; n_regular<6 faded cells (e.g. AR4431) excluded for stability. | `ds.faded_mask & (ds.n_regular >= 6)` | **187** |
+| Survival (RSF, XGB-AFT, etc.) | **All cells with n_regular ≥ 6** — both faded (event=1) and censored (event=0). Survival models consume censoring natively via `(time, event)`. | `ds.n_regular >= 6` on a `load_dataset(...)` call | **415** |
 
 For the cohort breakdown above, "trainable" semantics are owned by
 `ml_label_preprocess` (the upstream label engine). The cell_lifetime
 loader reads the parquet column `trainable_n{N}` directly into
 `ds.label_mask`. Do not recompute it.
+
+## Production prediction set vs training set (asymmetric)
+
+`cell-lifetime production` uses an **asymmetric filter**:
+
+- **Training** (classifier + RSF): `n_regular ≥ 6` (per the table above).
+- **Prediction**: **`n_regular ≥ 5`** — broader than training so newly-
+  introduced cells in the 5-cycle bucket can receive an early estimate
+  from the trained ensemble.
+
+Implementation: `production.py` calls `load_dataset(min_n_regular=5)`
+which loads the wider 439-cell pool (vs. the 415 that pass n_reg≥6).
+Training masks AND in `n_regular ≥ 6` to exclude the 24 n_reg=5 cells
+from training. The 24 cells appear in `predictions.csv` with predictions
+filled and `oof_*` and `in_training_set_n{N}` set to NaN/False
+(reflecting "predicted-only, never seen in training").
+
+Cells with `n_regular ∈ {0, 1, 2, 3, 4}` (5 cells in A2.2_b1) are
+dropped from BOTH training and prediction — their features haven't
+stabilized enough for either.
+
+The `cell-lifetime run` validation pipeline does NOT use this
+asymmetric filter — it sticks with `min_n_regular=6` for both training
+and the held-out test set, because validation focuses on metric
+estimation against definitive labels and the wider population doesn't
+help there.
 
 ### Why classification = `trainable_n{N}`, not `faded` only
 

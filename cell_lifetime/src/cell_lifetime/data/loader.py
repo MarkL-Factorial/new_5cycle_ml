@@ -147,6 +147,7 @@ class CycleLifeDataset:
     # Metadata
     cohorts: np.ndarray             # str
     cell_names: np.ndarray          # str
+    n_regular: np.ndarray           # int — count of regular cycles observed per cell
     feature_names: list[str]
     N: int
     baseline_cycle: int
@@ -198,6 +199,7 @@ class CycleLifeDataset:
             faded_mask=all_true if task == "regression" else self.faded_mask[mask],
             cohorts=self.cohorts[mask],
             cell_names=self.cell_names[mask],
+            n_regular=self.n_regular[mask],
             feature_names=self.feature_names,
             N=self.N, baseline_cycle=self.baseline_cycle,
             db_version=self.db_version, source_dir=self.source_dir,
@@ -288,6 +290,7 @@ def load_dataset(
         X=X, y_class=y_class, y_cycle=y_cycle, event=event, time=time,
         label_mask=label_mask, faded_mask=faded_mask,
         cohorts=cohorts, cell_names=cell_names,
+        n_regular=n_regular.astype(np.int64),
         feature_names=feature_names,
         N=N, baseline_cycle=baseline_cycle, db_version=db_version,
         source_dir=bundle,

@@ -25,7 +25,8 @@ with `n_regular ≥ N`), not faded-only.** This applies to both the
 | phase_experiments_i_rsf_censored_ablation | in-session | 2026-05-18T01:00Z | 2026-05-18T01:21Z | OK | 87ba00d | 0 src + 3 exp | 75 | 75 | experiments/exp_i_rsf_censored_ablation/summary.json |
 | phase_experiments_j_production_predictions | in-session | 2026-05-18T17:01Z | 2026-05-18T18:13Z | OK | b5fd949 | 0 src + 1 exp | 75 | 75 | experiments/exp_j_production_predictions/predictions.csv |
 | phase_experiments_j_rerun_trainable_n | in-session | 2026-05-18T18:11Z | 2026-05-18T18:23Z | OK | 4819476 | 0 src + 1 exp (rerun) | 75 | 75 | experiments/exp_j_production_predictions/predictions.csv |
-| phase_production_cli_graduation | in-session | 2026-05-18T19:38Z | 2026-05-18T20:29Z | OK | (pending) | 2 src (production.py, production_plots.py) + cli.py mod + scripts/diagnose_run.py | 75 | 75 | results/run/20260518_2338/ (gitignored; K=5 independent ensemble) |
+| phase_production_cli_graduation | in-session | 2026-05-18T19:38Z | 2026-05-18T20:29Z | OK | 37f669d | 2 src (production.py, production_plots.py) + cli.py mod + scripts/diagnose_run.py | 75 | 75 | results/run/20260518_2338/ (gitignored; K=5 independent ensemble) |
+| phase_production_asym_n_regular | in-session | 2026-05-18T23:20Z | 2026-05-19T00:13Z | OK | (pending) | loader (+ n_regular field), production.py (asym filter), CONVENTIONS.md | 75 | 75 | results/run/20260519_0322/ (439 rows; predicts n_reg≥5, trains n_reg≥6) |
 
 ## Phase 1 real-data smoke (A2.2_b1, N=300, 1 seed)
 

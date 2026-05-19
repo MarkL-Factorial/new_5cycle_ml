@@ -82,6 +82,14 @@ def make_synthetic_dataset(
     cohorts = np.where(rng.random(n_total) < 0.85, "AR", "0MC").astype(object)
     cell_names = np.array([f"SYN-{i:04d}" for i in range(n_total)])
 
+    # n_regular: number of regular cycles observed. For synthetic faded
+    # cells we use their cycle_life as a proxy; for censored cells we use
+    # the censoring time (n_regular_censored). These match the upstream
+    # ml_label_preprocess semantics closely enough for tests.
+    n_regular = np.concatenate(
+        [cycle_life_faded, n_regular_censored]
+    ).astype(np.int64)
+
     return CycleLifeDataset(
         X=X,
         y_class=y_class,
@@ -92,6 +100,7 @@ def make_synthetic_dataset(
         faded_mask=event.copy(),
         cohorts=cohorts,
         cell_names=cell_names,
+        n_regular=n_regular,
         feature_names=feature_names,
         N=N,
         baseline_cycle=1,

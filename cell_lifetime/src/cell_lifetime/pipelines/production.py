@@ -308,10 +308,14 @@ def run_production(
     seeds = list(range(K))
 
     # ---- Load RSF data once ------------------------------------------------
-    log.info(f"Loading RSF dataset (feature_subset={rsf_feature_subset})…")
+    # Production load uses min_n_regular=5 so we PREDICT on cells with
+    # n_regular≥5 (per CONVENTIONS.md). Cells with n_regular<6 will be
+    # filtered OUT of training masks below — they only get predictions.
+    log.info(f"Loading RSF dataset (feature_subset={rsf_feature_subset}, min_n_regular=5)…")
     ds_cv = load_dataset(
         N=300, feature_subset=rsf_feature_subset,
         baseline_cycle=baseline_cycle, db_version=db_version,
+        min_n_regular=5,
     )
     n_total = len(ds_cv)
     n_faded = int(ds_cv.event.sum())
@@ -325,6 +329,16 @@ def run_production(
     time_all = ds_cv.time.astype(np.int64)
     y_cycle_all = ds_cv.y_cycle.astype(float)
     cell_names = ds_cv.cell_names
+    n_regular_all = ds_cv.n_regular.astype(np.int64)
+
+    # Training mask for tasks that require n_regular>=6 (the canonical
+    # cell_lifetime training cutoff). Inference happens on the full
+    # n_total cells; only training is restricted.
+    train_eligible = (n_regular_all >= 6)
+    log.info(
+        f"Training-eligible cells (n_regular>=6): {int(train_eligible.sum())}/"
+        f"{n_total}; inference-only (n_regular=5): {int((~train_eligible).sum())}"
+    )
 
     # ---- Per-N classifier training (independent K-seed ensemble) ----------
     best_params: dict[str, Any] = {}
@@ -336,28 +350,39 @@ def run_production(
         ds_N = load_dataset(
             N=N, feature_subset=classifier_feature_subset,
             baseline_cycle=baseline_cycle, db_version=db_version,
+            min_n_regular=5,
         )
         assert (ds_N.cell_names == cell_names).all(), \
             f"N={N} loader returned different cell ordering than RSF load"
         assert (ds_N.event == event_all).all(), \
             f"N={N} loader returned different event array than RSF load"
+        assert (ds_N.n_regular == n_regular_all).all(), \
+            f"N={N} loader returned different n_regular than RSF load"
 
         X_all_N = ds_N.X.reset_index(drop=True)
         label_mask = ds_N.label_mask.astype(bool)
         y_class = ds_N.y_class.astype(np.int8)
 
-        train_idx = np.where(label_mask)[0]
+        # Training requires BOTH trainable_n{N} (definitive label) AND
+        # n_regular>=6 (stable feature signature). Cells failing either
+        # only get predictions, not OOF.
+        train_mask = label_mask & train_eligible
+        train_idx = np.where(train_mask)[0]
         X_train = X_all_N.iloc[train_idx].reset_index(drop=True)
         y_train = y_class[train_idx]
         n_train = len(train_idx)
         n_train_faded = int((event_all[train_idx]).sum())
         n_train_censored = n_train - n_train_faded
-        log.info(
-            f"  trainable_n{N}: {n_train} cells = {n_train_faded} faded + "
-            f"{n_train_censored} censored (pass={int((y_train==1).sum())}, "
-            f"fail={int((y_train==0).sum())})"
+        n_dropped_low_nreg = int(
+            (label_mask & ~train_eligible).sum()
         )
-        in_training_set[N] = label_mask
+        log.info(
+            f"  trainable_n{N} ∩ n_reg≥6: {n_train} cells = {n_train_faded} faded + "
+            f"{n_train_censored} censored (pass={int((y_train==1).sum())}, "
+            f"fail={int((y_train==0).sum())}); "
+            f"dropped {n_dropped_low_nreg} labeled cells with n_reg<6"
+        )
+        in_training_set[N] = train_mask
 
         # K ensemble members
         member_probs: list[np.ndarray] = []
@@ -423,7 +448,16 @@ def run_production(
         }
 
     # ---- RSF training (independent K-seed ensemble) -----------------------
-    log.info(f"=== rsf × {rsf_feature_subset} (all {n_total} cells) ===")
+    # Trained on cells with n_regular≥6 only; predicts on all loaded cells.
+    rsf_train_idx = np.where(train_eligible)[0]
+    n_rsf_train = len(rsf_train_idx)
+    X_rsf_train = X_cv_all.iloc[rsf_train_idx].reset_index(drop=True)
+    time_rsf_train = time_all[rsf_train_idx]
+    event_rsf_train = event_all[rsf_train_idx]
+    log.info(
+        f"=== rsf × {rsf_feature_subset} (train on {n_rsf_train} n_reg≥6 cells; "
+        f"predict on all {n_total}) ==="
+    )
     rsf_medians: list[np.ndarray] = []
     rsf_bests: list[dict[str, Any]] = []
     rsf_cindices: list[float] = []
@@ -431,7 +465,7 @@ def run_production(
         t0 = _time.time()
         log.info(f"  [k={k}] tune ({trials} trials × {inner_cv} CV)…")
         best, cindex_best, fold_cs = _tune_rsf(
-            X_cv_all, time_all, event_all, trials, inner_cv, seed=k,
+            X_rsf_train, time_rsf_train, event_rsf_train, trials, inner_cv, seed=k,
         )
         log.info(
             f"  [k={k}] best C-index = {cindex_best:.4f} "
@@ -440,9 +474,9 @@ def run_production(
         )
 
         rsf_model = RSFModel({**best, "low_memory": False, "random_state": k})
-        rsf_model.fit(X_cv_all, time=time_all, event=event_all)
+        rsf_model.fit(X_rsf_train, time=time_rsf_train, event=event_rsf_train)
         sfs = rsf_model.predict_survival_curve(X_cv_all)
-        t_cap = float(time_all.max())
+        t_cap = float(time_rsf_train.max())  # cap from TRAINING distribution
         median = np.array(
             [median_survival_from_sf(sf, t_cap) for sf in sfs],
             dtype=float,
@@ -465,9 +499,10 @@ def run_production(
         "best_params_per_seed": rsf_bests,
         "inner_cv_cindex_per_seed": rsf_cindices,
         "inner_cv_cindex_mean": float(np.mean(rsf_cindices)),
-        "n_training_cells": n_total,
+        "n_training_cells": n_rsf_train,
+        "n_inference_cells": n_total,
         "n_features": int(X_cv_all.shape[1]),
-        "t_cap": float(time_all.max()),
+        "t_cap": float(time_rsf_train.max()),
     }
 
     # ---- Assemble predictions.csv -----------------------------------------
@@ -477,7 +512,7 @@ def run_production(
             _true_pass(
                 bool(event_all[i]),
                 float(y_cycle_all[i]) if event_all[i] else float("nan"),
-                int(time_all[i]),
+                int(n_regular_all[i]),  # true n_regular per cell (≠ time for faded)
                 N,
             )
             for i in range(n_total)
@@ -490,7 +525,7 @@ def run_production(
         "status": np.where(event_all, "faded", "censored"),
         "event": event_all,
         "last_fade_cycle": np.where(event_all, y_cycle_all, np.nan),
-        "n_regular": time_all,
+        "n_regular": n_regular_all,
         "time": time_all,
         "true_pass_n200": true_pass[200],
         "true_pass_n300": true_pass[300],
