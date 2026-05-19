@@ -90,6 +90,12 @@ def make_synthetic_dataset(
         [cycle_life_faded, n_regular_censored]
     ).astype(np.int64)
 
+    # Synthetic data has no excluded cells — faded cells become status='faded',
+    # censored cells become status='in_testing' (matching upstream's vocabulary
+    # for healthy-still-cycling cells).
+    status = np.where(event, "faded", "in_testing").astype(object)
+    exclusion_reason = np.array([None] * n_total, dtype=object)
+
     return CycleLifeDataset(
         X=X,
         y_class=y_class,
@@ -101,6 +107,8 @@ def make_synthetic_dataset(
         cohorts=cohorts,
         cell_names=cell_names,
         n_regular=n_regular,
+        status=status,
+        exclusion_reason=exclusion_reason,
         feature_names=feature_names,
         N=N,
         baseline_cycle=1,

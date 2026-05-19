@@ -11,10 +11,16 @@ Three target shapes per row:
   - event:   bool  — True iff status=="faded"
   - time:    int   — `last_fade_cycle` if faded, else `n_regular`
 
-`label_mask` (classification trainable: `trainable_n{N}`) and
-`faded_mask` (regression trainable: status=="faded") gate which rows
-each model sees. Survival uses (event, time) directly with no masking
-beyond `excluded` rows dropped at load time.
+Per-task training rows are gated by:
+  - classification → `label_mask` = `trainable_n{N}` (preprocessor sets
+    False for status=='excluded' cells)
+  - regression     → `faded_mask` = (status == 'faded')
+  - survival       → (status != 'excluded'); see `task_target('survival')`
+    and `view_for_task('survival')`. This is the load-bearing gate that
+    keeps rate_changed cells out of RSF/AFT training when production
+    loads with `drop_excluded=False` for inference.
+
+Inference / prediction on any admitted row uses raw `ds.X` with no mask.
 """
 
 from __future__ import annotations
@@ -148,6 +154,8 @@ class CycleLifeDataset:
     cohorts: np.ndarray             # str
     cell_names: np.ndarray          # str
     n_regular: np.ndarray           # int — count of regular cycles observed per cell
+    status: np.ndarray              # str — 'faded' | 'in_testing' | 'excluded'
+    exclusion_reason: np.ndarray    # object — str or None (e.g. 'rate_changed', 'no_regular')
     feature_names: list[str]
     N: int
     baseline_cycle: int
@@ -162,15 +170,22 @@ class CycleLifeDataset:
 
         - classification → (y_class, label_mask)
         - regression     → (y_cycle, faded_mask)
-        - survival       → (time, event-as-mask)  — but survival models consume
-                           (event, time) directly; this is the "scalar y" view.
+        - survival       → (time, (status != 'excluded')-as-mask) — survival
+                           models consume (event, time) directly; the mask
+                           here gates training rows. See the body comment
+                           for why excluded-cell exclusion is load-bearing.
         """
         if task == "classification":
             return self.y_class, self.label_mask
         if task == "regression":
             return self.y_cycle, self.faded_mask
         if task == "survival":
-            return self.time, np.ones_like(self.event, dtype=bool)
+            # Survival sees faded (event=1) AND in_testing (event=0, censored)
+            # but NOT excluded cells. status='excluded' is the canonical
+            # "don't train on this" marker; honoring it here keeps RSF/AFT
+            # from training on rate_changed cells that flow through when
+            # drop_excluded=False (production-inference mode).
+            return self.time, (self.status != "excluded")
         raise ValueError(f"unknown task {task!r}; supported: {SUPPORTED_TASKS}")
 
     def view_for_task(self, task: str) -> "CycleLifeDataset":
@@ -184,7 +199,10 @@ class CycleLifeDataset:
         elif task == "regression":
             mask = self.faded_mask
         elif task == "survival":
-            mask = np.ones_like(self.event, dtype=bool)  # all 444 trainable rows
+            # See task_target('survival'): excludes status='excluded' so
+            # rate_changed cells that flow through with drop_excluded=False
+            # never end up in survival training.
+            mask = (self.status != "excluded")
         else:
             raise ValueError(f"unknown task {task!r}")
         n = int(mask.sum())
@@ -200,6 +218,8 @@ class CycleLifeDataset:
             cohorts=self.cohorts[mask],
             cell_names=self.cell_names[mask],
             n_regular=self.n_regular[mask],
+            status=self.status[mask],
+            exclusion_reason=self.exclusion_reason[mask],
             feature_names=self.feature_names,
             N=self.N, baseline_cycle=self.baseline_cycle,
             db_version=self.db_version, source_dir=self.source_dir,
@@ -217,10 +237,15 @@ def load_dataset(
 ) -> CycleLifeDataset:
     """Read an ml_label_preprocess bundle and return targets for all three tasks.
 
-    Setting `drop_excluded=True` (default) removes 17 cells with
-    status=='excluded' from every output array — they have no usable
-    target under any task. Set to False if you specifically want them
-    returned with NaN/False targets.
+    Setting `drop_excluded=True` (default) removes status=='excluded'
+    cells from every output array (23 cells in the A2.2_b1 May-19 bundle:
+    15 rate_changed + 8 no_regular) — they're not trainable under any
+    task. Production (`cell-lifetime production`) sets this to False so
+    upstream-admitted rate_changed cells (status='excluded' but with a
+    feature row and `n_regular > 0`) flow through to inference. Training
+    masks (`label_mask`, `faded_mask`, and the survival mask in
+    `task_target`/`view_for_task`) all gate on status='excluded'
+    regardless, so those cells appear only in predictions.
 
     `min_n_regular` (default 6) is a hard filter: cells with fewer than
     this many regular cycles are dropped before any masks or targets are
@@ -268,7 +293,8 @@ def load_dataset(
         joined = joined.loc[joined["n_regular"] >= min_n_regular].reset_index(drop=True)
 
     X = joined[feature_names].copy().reset_index(drop=True)
-    status = joined["status"].to_numpy()
+    status = joined["status"].to_numpy().astype(object)
+    exclusion_reason = joined["exclusion_reason"].to_numpy().astype(object)
     last_fade = joined["last_fade_cycle"].to_numpy()
     n_regular = joined["n_regular"].to_numpy()
 
@@ -291,6 +317,7 @@ def load_dataset(
         label_mask=label_mask, faded_mask=faded_mask,
         cohorts=cohorts, cell_names=cell_names,
         n_regular=n_regular.astype(np.int64),
+        status=status, exclusion_reason=exclusion_reason,
         feature_names=feature_names,
         N=N, baseline_cycle=baseline_cycle, db_version=db_version,
         source_dir=bundle,

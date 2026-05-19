@@ -32,22 +32,50 @@ loader reads the parquet column `trainable_n{N}` directly into
   introduced cells in the 5-cycle bucket can receive an early estimate
   from the trained ensemble.
 
-Implementation: `production.py` calls `load_dataset(min_n_regular=5)`
-which loads the wider 439-cell pool (vs. the 415 that pass n_reg≥6).
-Training masks AND in `n_regular ≥ 6` to exclude the 24 n_reg=5 cells
-from training. The 24 cells appear in `predictions.csv` with predictions
-filled and `oof_*` and `in_training_set_n{N}` set to NaN/False
-(reflecting "predicted-only, never seen in training").
+Implementation: `production.py` calls
+`load_dataset(min_n_regular=5, drop_excluded=False)` which loads the
+wider 459-cell pool in A2.2_b1 (444 single_rate with n_reg≥5, plus 15
+rate_changed cells admitted upstream — see next section). Training masks
+AND in `(n_regular ≥ 6) & (status != 'excluded')` to keep the n_reg=5
+cells and rate_changed cells out of training. They appear in
+`predictions.csv` with predictions filled and `oof_*` and
+`in_training_set_n{N}` set to NaN/False ("predicted-only").
 
 Cells with `n_regular ∈ {0, 1, 2, 3, 4}` (5 cells in A2.2_b1) are
 dropped from BOTH training and prediction — their features haven't
 stabilized enough for either.
 
 The `cell-lifetime run` validation pipeline does NOT use this
-asymmetric filter — it sticks with `min_n_regular=6` for both training
-and the held-out test set, because validation focuses on metric
-estimation against definitive labels and the wider population doesn't
-help there.
+asymmetric filter — it sticks with `min_n_regular=6, drop_excluded=True`
+for both training and the held-out test set, because validation focuses
+on metric estimation against definitive labels and the wider population
+doesn't help there.
+
+### Rate-changed cells in production prediction
+
+Upstream `ml_label_preprocess` (schema_v2) emits feature rows for
+`cycling_consistency='rate_changed'` cells whose first rate regime
+covers cycles 1..5 (15 cells in A2.2_b1). Features are computed on the
+pre-rate-change cycles 1..5 only — the entire feature window is at the
+original rate. The cells appear in `predictions.csv` with:
+
+- `status='excluded'`, `exclusion_reason='rate_changed'`
+- `in_training_set_n{N}=False` for every N (gated by both
+  `trainable_n{N}=False` upstream AND `status != 'excluded'` in
+  `production.py::train_eligible`)
+- `oof_*` columns NaN (never in training, so no out-of-fold prediction)
+- All `prob_pass_n{N}`, `pred_pass_n{N}`, `rsf_median_cycle` populated
+
+Semantics: these predictions are a *counterfactual estimate* of how the
+cell would have classified if its rate had not changed. They are NOT
+validation data; downstream metrics MUST exclude rows with
+`exclusion_reason == 'rate_changed'`.
+
+The training-exclusion contract is enforced **inside the loader** —
+`task_target('survival')` and `view_for_task('survival')` both mask out
+`status='excluded'` rows. This means `cell-lifetime run` (validation)
+also automatically excludes rate_changed cells from any task's training
+data, without needing a separate flag.
 
 ### Why classification = `trainable_n{N}`, not `faded` only
 
