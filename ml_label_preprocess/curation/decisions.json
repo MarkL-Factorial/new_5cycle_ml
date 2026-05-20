@@ -1,0 +1,210 @@
+{
+  "0MC20-260203-R001": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 52,
+    "event_type": "censor",
+    "reason": "drop last few cycles",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 60
+  },
+  "AR4084": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 291,
+    "event_type": "censor",
+    "reason": "5-cycle outlier burst at cycles 292-296; truncate before burst (ret 0.87 at trunc, censor)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 454
+  },
+  "AR4143": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 276,
+    "event_type": "censor",
+    "reason": "down-then-up anomalous segment cycles 277-310; truncate before anomaly (ret 0.89 at trunc, censor)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 703
+  },
+  "AR4145": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 279,
+    "event_type": "censor",
+    "reason": "down-then-up anomalous segment cycles 280-312; truncate before anomaly (ret 0.88 at trunc, censor)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 523
+  },
+  "AR4147": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 280,
+    "event_type": "censor",
+    "reason": "down-then-up anomalous segment cycles 281-312; truncate before anomaly (ret 0.90 at trunc, censor)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 520
+  },
+  "AR4148": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 280,
+    "event_type": "censor",
+    "reason": "down-then-up anomalous segment cycles 281-310; truncate before anomaly (ret 0.88 at trunc, censor)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 669
+  },
+  "AR4149": {
+    "exclude_from_ml": true,
+    "last_available_cycle": null,
+    "event_type": null,
+    "reason": "low_initial_capacity confirmed",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 127
+  },
+  "AR4195": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 35,
+    "event_type": "event",
+    "reason": "abnormal voltage pattern at regular cd 33; cell faded at cycle 35 (retention 0.78). Outlier detector wrongly flagged cycles 32-35 as a burst; human review of voltage trace confirms these are real cell behavior, not measurement noise.",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 35
+  },
+  "AR4269": {
+    "exclude_from_ml": true,
+    "last_available_cycle": null,
+    "event_type": null,
+    "reason": "too much uncertainty",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 23
+  },
+  "AR4313": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 265,
+    "event_type": "event",
+    "reason": "protocol change after cycle 268; truncate at 265 (ret 0.80 at trunc, crossed 0.85 before, event)",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 472
+  },
+  "AR4389": {
+    "exclude_from_ml": true,
+    "last_available_cycle": null,
+    "event_type": null,
+    "reason": "uncertainty, unusual behaviour",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 119
+  },
+  "0MC2-251029-003": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 445,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 446
+  },
+  "0MC2-251216-020": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 220,
+    "event_type": "event",
+    "reason": "fade suddenly",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 221
+  },
+  "0MC6-260107-R002": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 145,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 145
+  },
+  "0MC6-260107-R003": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 21,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 21
+  },
+  "0MC6-260119-R006": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 262,
+    "event_type": "event",
+    "reason": "EOL",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 262
+  },
+  "0MC6-260121-R002": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 117,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 117
+  },
+  "0MC6-260123-R003": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 113,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 113
+  },
+  "0MC6-260213-R001": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 289,
+    "event_type": "event",
+    "reason": "EOL",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 289
+  },
+  "0MC6-260218-R003": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 143,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 143
+  },
+  "AR3920": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 723,
+    "event_type": "event",
+    "reason": "EOL",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 723
+  },
+  "AR4080": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 754,
+    "event_type": "event",
+    "reason": "EOL",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 754
+  },
+  "AR4162": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 276,
+    "event_type": "event",
+    "reason": "EOL",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 319
+  },
+  "AR4199": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 205,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 205
+  },
+  "AR4424": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 16,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 16
+  },
+  "AR4664": {
+    "exclude_from_ml": false,
+    "last_available_cycle": 102,
+    "event_type": "censor",
+    "reason": "continue cycling",
+    "validated_at": "2026-05-20",
+    "n_regular_at_review": 102
+  }
+}

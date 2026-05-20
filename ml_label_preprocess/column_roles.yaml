@@ -125,6 +125,8 @@ datasets:
         role: label
         dtype: string
         nullable: true
+        enum: [rate_changed, no_regular, human_review, low_initial_capacity, no_baseline]
+        note: "Why status='excluded'. null for non-excluded cells."
       - name: last_fade_cycle
         role: label
         dtype: int

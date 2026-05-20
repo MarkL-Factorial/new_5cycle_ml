@@ -31,7 +31,7 @@ conda activate eis`.
 | [cell_classifier/](cell_classifier/README.md)             | N-cycle survival classifier (src/ layout, console entry) |
 
 Two earlier subprojects — `ml_label_preprocess_v3/` and
-`ml_classification/` — still exist in some local working copies but are
+`ml_classification/` — have been archived under `legacy/` and are
 excluded from this repo via `.gitignore`. They are slated for removal;
 ignore them for new work.
 

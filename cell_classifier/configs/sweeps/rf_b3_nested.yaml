@@ -1,0 +1,27 @@
+# Sweep #1: nested_cv at baseline=3 across N=200/300/400.
+# Together with tonight's three baseline=1 nested_cv runs, this completes the
+# canonical (N × baseline) grid. Output bundles land in
+# results/runs/validation/<slug>__<timestamp>/; aggregate in
+# results/sweeps/rf_b3_nested_20260516/.
+#
+# Expected runtime: 3 runs × ~3.5h ≈ ~10–12h sequential on one node.
+
+template: ../rf.yaml
+mode: validation
+tuning_protocol: nested_cv
+sweep_id: rf_b3_nested_20260516
+
+axes:
+  N: [200, 300, 400]
+
+fixed:
+  model: random_forest
+  db_version: A2.2
+  baseline_cycle: 3
+  feature_subset: fs_cv
+  seeds_preset: fresh        # 50 seeds — matches tonight's baseline=1 runs
+  outer_k: 5
+  tune:
+    n_trials: 100
+    inner_cv: 5
+    optimize: f1

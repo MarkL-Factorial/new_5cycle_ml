@@ -39,6 +39,7 @@ from _common import (
     dataset_dir_for,
     iter_annotations,
     iter_regulars,
+    promote_to_latest,
     write_manifest,
     write_outputs,
 )
@@ -1236,6 +1237,8 @@ def main(
         "stages_populated": ["features"],
     })
 
+    latest_link = promote_to_latest(out_dir)
+
     print(f"db_version     = {db_version}")
     print(f"baseline_cycle = {baseline_cycle}")
     print(f"scanned        = {n_scanned}")
@@ -1249,6 +1252,7 @@ def main(
     if status_csv_path is not None:
         print(f"                 {status_csv_path}  ({len(all_status_rows)} fit-attempt rows)")
     print(f"                 {manifest_path}")
+    print(f"latest         = {latest_link} -> {out_dir.name}")
     print()
     tier_b_cols = [
         "discharge_nominal_voltage_retention_max",

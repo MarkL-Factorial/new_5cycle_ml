@@ -72,6 +72,10 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
                         "Default: auto-parsed from ANNOT_DIR — for "
                         "'/.../A2.2/annotations' this is 'A2.2'. Override when "
                         "ANNOT_DIR doesn't follow that convention.")
+    p.add_argument("--migrate-legacy", action="store_true",
+                   help="one-shot: convert legacy flat datasets/{bundle}/ "
+                        "layouts into timestamped snapshots + _latest symlink. "
+                        "Run once per workspace, then never again.")
     return p.parse_args(argv)
 
 
@@ -89,6 +93,24 @@ def main(argv: list[str] | None = None) -> int:
         if fail:
             print(f"\nTotal selftest failures: {fail}", file=sys.stderr)
             return 2
+        return 0
+
+    if args.migrate_legacy:
+        from _common import DATASETS_DIR, migrate_legacy_bundle
+        if not DATASETS_DIR.exists():
+            print(f"nothing to migrate: {DATASETS_DIR} doesn't exist")
+            return 0
+        n_migrated = 0
+        for bundle_dir in sorted(DATASETS_DIR.iterdir()):
+            if not bundle_dir.is_dir():
+                continue
+            snapshot = migrate_legacy_bundle(bundle_dir)
+            if snapshot is not None:
+                print(f"migrated {bundle_dir.name} → {snapshot.name}")
+                n_migrated += 1
+            else:
+                print(f"skipped  {bundle_dir.name} (no legacy files at root)")
+        print(f"\n{n_migrated} bundle(s) migrated")
         return 0
 
     from _common import db_version_from_path
@@ -116,6 +138,7 @@ def _selftest_common() -> int:
     """Selftests for the v3 path / manifest helpers in _common.py."""
     from pathlib import Path
     import json
+    import os
     import tempfile
 
     from _common import (
@@ -148,13 +171,33 @@ def _selftest_common() -> int:
         print("  [FAIL] db_version_from_path: missing 'annotations' tail did not raise")
         fail += 1
 
-    # dataset_dir_for creates the dir with the expected slug
+    # dataset_dir_for creates a timestamped snapshot dir under the
+    # bundle dir. Snapshot name format: {db}_b{N}_{YYYYMMDD_HHMM}.
     target = dataset_dir_for("A9.9", 4)
-    if target.name != "A9.9_b4":
-        print(f"  [FAIL] dataset_dir_for slug: got {target.name!r}")
+    if not target.name.startswith("A9.9_b4_"):
+        print(f"  [FAIL] dataset_dir_for snapshot name: got {target.name!r}")
+        fail += 1
+    if target.parent.name != "A9.9_b4":
+        print(f"  [FAIL] dataset_dir_for bundle name: got {target.parent.name!r}")
         fail += 1
     if not target.is_dir():
         print(f"  [FAIL] dataset_dir_for did not create dir: {target}")
+        fail += 1
+
+    # promote_to_latest creates a relative symlink alongside the snapshot
+    from _common import promote_to_latest
+    latest = promote_to_latest(target)
+    if not latest.is_symlink():
+        print(f"  [FAIL] promote_to_latest did not create symlink: {latest}")
+        fail += 1
+    elif os.readlink(latest) != target.name:
+        print(
+            f"  [FAIL] promote_to_latest target should be relative {target.name!r}, "
+            f"got {os.readlink(latest)!r}"
+        )
+        fail += 1
+    if latest.name != "A9.9_b4_latest":
+        print(f"  [FAIL] promote_to_latest name: got {latest.name!r}")
         fail += 1
 
     # write_manifest merge round-trip in a sandbox dir

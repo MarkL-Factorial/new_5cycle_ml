@@ -39,7 +39,9 @@ def test_default_db_baseline():
     ds = load_dataset(N=300, feature_subset="fs_cv")
     assert ds.baseline_cycle == 1
     assert ds.db_version == "A2.2"
-    assert ds.source_dir.name == "A2.2_b1"
+    # v3 layout: source_dir is the snapshot dir, sitting inside the bundle dir.
+    # Pre-v3 (flat) layout: source_dir IS the bundle dir. Accept either.
+    assert ds.source_dir.name == "A2.2_b1" or ds.source_dir.parent.name == "A2.2_b1"
 
 
 def test_baseline_3_loads():
@@ -48,7 +50,7 @@ def test_baseline_3_loads():
         pytest.skip(f"baseline=3 bundle missing at {target}")
     ds = load_dataset(N=300, feature_subset="fs_cv", baseline_cycle=3)
     assert ds.baseline_cycle == 3
-    assert ds.source_dir.name == "A2.2_b3"
+    assert ds.source_dir.name == "A2.2_b3" or ds.source_dir.parent.name == "A2.2_b3"
 
 
 def test_bad_N_raises():
@@ -67,6 +69,11 @@ def test_missing_bundle_raises(tmp_path):
 
 
 def ds_path(db: str, baseline: int) -> Path:
-    """Helper for skip checks."""
-    from cell_classifier.data.loader import _default_preprocess_root
-    return _default_preprocess_root() / "datasets" / f"{db}_b{baseline}" / "cell_features.parquet"
+    """Helper for skip checks. Resolves through the loader's bundle helper
+    so the v3 ``{bundle}_latest`` symlink layout and the legacy flat
+    layout both work transparently."""
+    from cell_classifier.data.loader import (
+        _default_preprocess_root,
+        _resolve_bundle_dir,
+    )
+    return _resolve_bundle_dir(_default_preprocess_root(), db, baseline) / "cell_features.parquet"

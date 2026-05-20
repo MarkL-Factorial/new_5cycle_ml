@@ -1,9 +1,9 @@
 # Top-level .gitignore for new_5cycle_ml.
 #
 # Defense-in-depth — `cell_classifier/` and `ml_label_preprocess/` carry
-# their own .gitignore, but the legacy subprojects (`ml_classification/`,
-# `ml_label_preprocess_v3/`) do not, so this file catches their generated
-# artifacts as well.
+# their own .gitignore. The legacy subprojects (`legacy/ml_classification/`,
+# `legacy/ml_label_preprocess_v3/`) do not, but the whole `legacy/` tree is
+# excluded below, so this file also catches their generated artifacts.
 
 # ---------------------------------------------------------------------------
 # Python build / bytecode
@@ -70,10 +70,10 @@ ENV/
 .env.*.local
 
 # ---------------------------------------------------------------------------
-# Legacy subprojects — slated for removal, excluded from git in the meantime.
+# Legacy subprojects — archived under `legacy/`, excluded from git.
+# Slated for removal; kept on disk for reference only.
 # ---------------------------------------------------------------------------
-ml_label_preprocess_v3/
-ml_classification/
+legacy/
 
 # ---------------------------------------------------------------------------
 # Editor / IDE / OS metadata
@@ -92,3 +92,9 @@ Thumbs.db
 .claude/settings.local.json
 .claude/CLAUDE.local.md
 .claude/plans/
+.claude/scheduled_tasks.lock
+
+# ---------------------------------------------------------------------------
+# Colleague data dumps — raw parquets etc. live under data/, not in repo.
+# ---------------------------------------------------------------------------
+colleague_annoation/*.parquet

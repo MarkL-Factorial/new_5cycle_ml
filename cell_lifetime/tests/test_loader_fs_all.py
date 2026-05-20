@@ -1,15 +1,13 @@
 """Verify the loader's `fs_all` special subset returns all feature-role columns."""
 
-from pathlib import Path
-
 import pytest
 
+from cell_classifier.data.loader import _resolve_bundle_dir, _resolve_preprocess_root
 from cell_lifetime.data.loader import _load_feature_subset
 
 
 _BUNDLE = (
-    Path(__file__).resolve().parents[2]
-    / "ml_label_preprocess/datasets/A2.2_b1/cell_labels.parquet"
+    _resolve_bundle_dir(_resolve_preprocess_root(), "A2.2", 1) / "cell_labels.parquet"
 )
 
 

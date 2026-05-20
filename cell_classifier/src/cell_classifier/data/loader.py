@@ -52,6 +52,69 @@ def column_roles_path(preprocess_root: Optional[str] = None) -> Path:
     return _resolve_preprocess_root(preprocess_root) / "column_roles.yaml"
 
 
+_REQUIRED_BUNDLE_FILES = ("cell_features.parquet", "cell_labels.parquet")
+
+
+def _bundle_is_complete(dir_: Path) -> bool:
+    return all((dir_ / name).is_file() for name in _REQUIRED_BUNDLE_FILES)
+
+
+def _resolve_bundle_dir(
+    root: Path,
+    db_version: str,
+    baseline_cycle: int,
+    snapshot: Optional[str] = None,
+) -> Path:
+    """Resolve the dir holding both cell_features.parquet AND cell_labels.parquet.
+
+    Upstream layout (ml_label_preprocess v3):
+
+        datasets/{db_version}_b{baseline_cycle}/
+            {db_version}_b{baseline_cycle}_{ts}/      <- timestamped snapshot
+                cell_features.parquet
+                cell_labels.parquet
+                manifest.json
+            {db_version}_b{baseline_cycle}_latest     <- symlink to a snapshot
+
+    Resolution order:
+
+      1. ``snapshot`` arg (e.g. ``'A2.2_b1_20260520_1352_legacy'``) — pin
+         a specific snapshot for reproducibility. No completeness check —
+         caller asked for it explicitly.
+      2. ``{bundle}_latest`` symlink, IF the target is complete (both
+         parquets present). Upstream's ``preprocess.py --labels`` writes
+         a labels-only snapshot and re-points ``_latest`` at it, so the
+         symlink alone is not enough.
+      3. Most recent complete snapshot by directory name (timestamp-
+         sortable: ``{bundle}_YYYYMMDD_HHMM[_legacy]``).
+      4. Legacy flat layout (pre-v3): parquets directly under ``{bundle}/``.
+    """
+    bundle_parent = root / "datasets" / f"{db_version}_b{baseline_cycle}"
+    if snapshot is not None:
+        return bundle_parent / snapshot
+
+    latest = bundle_parent / f"{db_version}_b{baseline_cycle}_latest"
+    if latest.exists() and _bundle_is_complete(latest):
+        return latest
+
+    if bundle_parent.is_dir():
+        prefix = f"{db_version}_b{baseline_cycle}_"
+        candidates = sorted(
+            (p for p in bundle_parent.iterdir()
+             if p.is_dir() and p.name.startswith(prefix) and p.name != f"{prefix}latest"),
+            key=lambda p: p.name,
+            reverse=True,
+        )
+        for snap in candidates:
+            if _bundle_is_complete(snap):
+                return snap
+
+    if _bundle_is_complete(bundle_parent):
+        return bundle_parent  # pre-v3 flat layout
+
+    return latest  # let caller's FileNotFoundError surface the broken default
+
+
 def _load_feature_subset(subset_name: str, preprocess_root: Optional[str] = None) -> list[str]:
     path = column_roles_path(preprocess_root)
     manifest = yaml.safe_load(path.read_text())
@@ -112,7 +175,14 @@ def load_dataset(
     baseline_cycle: int = 1,
     db_version: str = "A2.2",
     preprocess_root: Optional[str] = None,
+    snapshot: Optional[str] = None,
 ) -> Dataset:
+    """Read an ml_label_preprocess bundle for (db_version, baseline_cycle).
+
+    ``snapshot`` (default None) pins to a specific snapshot dir name
+    (e.g. ``'A2.2_b1_20260520_1352_legacy'``). When None, follows the
+    ``{bundle}_latest`` symlink. See :func:`_resolve_bundle_dir`.
+    """
     if N not in SUPPORTED_N:
         raise ValueError(f"N must be one of {SUPPORTED_N} (got {N})")
     if baseline_cycle not in SUPPORTED_BASELINE:
@@ -121,7 +191,7 @@ def load_dataset(
         )
 
     root = _resolve_preprocess_root(preprocess_root)
-    bundle = root / "datasets" / f"{db_version}_b{baseline_cycle}"
+    bundle = _resolve_bundle_dir(root, db_version, baseline_cycle, snapshot)
     features_path = bundle / "cell_features.parquet"
     labels_path = bundle / "cell_labels.parquet"
     if not features_path.exists() or not labels_path.exists():

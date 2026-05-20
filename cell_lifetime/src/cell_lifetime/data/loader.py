@@ -35,7 +35,7 @@ import pandas as pd
 import polars as pl
 import yaml
 
-from cell_classifier.data.loader import column_roles_path
+from cell_classifier.data.loader import column_roles_path, _resolve_bundle_dir
 
 
 SUPPORTED_N = (200, 300, 400)
@@ -234,6 +234,7 @@ def load_dataset(
     preprocess_root: Optional[str] = None,
     drop_excluded: bool = True,
     min_n_regular: int = 6,
+    snapshot: Optional[str] = None,
 ) -> CycleLifeDataset:
     """Read an ml_label_preprocess bundle and return targets for all three tasks.
 
@@ -254,6 +255,11 @@ def load_dataset(
     "in-testing" example nor a meaningful "faded" one. Upstream features
     pipeline filters at n_regular >= 5; cell_lifetime tightens this to 6
     to remove the boundary cases.
+
+    `snapshot` (default None) pins to a specific upstream snapshot dir
+    name (e.g. ``'A2.2_b1_20260520_1352_legacy'``). When None, follows
+    the ``{db_version}_b{baseline_cycle}_latest`` symlink. See
+    :func:`cell_classifier.data.loader._resolve_bundle_dir`.
     """
     if N not in SUPPORTED_N:
         raise ValueError(f"N must be one of {SUPPORTED_N} (got {N})")
@@ -263,7 +269,7 @@ def load_dataset(
         )
 
     root = _resolve_preprocess_root(preprocess_root)
-    bundle = root / "datasets" / f"{db_version}_b{baseline_cycle}"
+    bundle = _resolve_bundle_dir(root, db_version, baseline_cycle, snapshot)
     features_path = bundle / "cell_features.parquet"
     labels_path = bundle / "cell_labels.parquet"
     if not features_path.exists() or not labels_path.exists():

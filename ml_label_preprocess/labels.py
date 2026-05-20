@@ -5,12 +5,13 @@ computes the per-cell ground-truth label that downstream ML uses as its
 target, and writes one row per cell to out/cell_labels.{parquet,csv}.
 
 Label semantics:
-  - excluded   : cell can't be used for ML training
-                 (cycling_consistency = rate_changed | no_regular,
-                  or no usable baseline). Some excluded cells DO get a
-                 feature row and a meaningful n_regular — see the
-                 "rate_changed featurizable" sub-class below — to support
-                 production-inference scoring.
+  - excluded   : cell can't be used for ML training. ``exclusion_reason``
+                 records which gate fired (one of: ``rate_changed``,
+                 ``no_regular``, ``human_review``, ``low_initial_capacity``,
+                 ``no_baseline``). Some excluded cells DO get a feature
+                 row and a meaningful n_regular — see the "rate_changed
+                 featurizable" sub-class below — to support production-
+                 inference scoring.
   - faded      : cell's retention dropped below 0.85 and stayed there;
                  last_fade_cycle records the regular_cycle ordinal of the
                  LAST crossing into bad (point of no return)
@@ -43,7 +44,9 @@ Author: Mark Liao (Sheng-Lun Liao)
 """
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 from typing import Optional
 
 import polars as pl
@@ -54,12 +57,29 @@ from _common import (
     dataset_dir_for,
     iter_annotations,
     iter_regulars,
+    promote_to_latest,
     write_manifest,
     write_outputs,
 )
 
 DEFAULT_BASELINE_CYCLE = 1
 SCHEMA_VERSION = 2
+
+# ML-fitness gate: any cell whose first N regular CD cycles include a
+# cycle with charge or discharge capacity below this threshold is
+# excluded with ``exclusion_reason="low_initial_capacity"``. Such
+# cycles indicate calibration runs, sensor faults, or aborted formation
+# — the retention denominator they imply is meaningless.
+LOW_INITIAL_CAPACITY_THRESHOLD_AH = 0.1
+LOW_INITIAL_CAPACITY_WINDOW = 5
+
+# External artifacts produced by the curation/ pipeline. Both files
+# are *optional* — missing files mean "no overrides", and the cell is
+# processed exactly as it was before the curation wiring. See:
+#   curation/README.md
+HERE = Path(__file__).resolve().parent
+DECISIONS_PATH = HERE / "curation" / "decisions.json"
+OUTLIER_SIDECAR_PATH = HERE / "curation" / "outlier_sidecar.json"
 
 RETENTION_THRESHOLD = 0.85
 RECOVERY_MIN = 3
@@ -78,6 +98,36 @@ RECOVERY_MIN = 3
 # trainable_n{N} is True iff label_n{N} ∈ {"pass", "bad"} — gives
 # downstream ML a one-flag filter for the binary-classification subset.
 N_THRESHOLDS = (200, 300, 400)
+
+
+def _load_decisions() -> dict:
+    """Read ``decisions.json`` from the manual-validation artifact.
+
+    Missing file ⇒ empty mapping (no overrides). Caller's downstream
+    behavior degrades gracefully to pre-Phase-2 logic.
+
+    Schema (per cell):
+      exclude_from_ml      bool   — when true, drop cell from cohort
+      last_available_cycle int|null — truncate retention curve at/before this cycle
+      event_type           "censor"|"event"|null — manual annotation
+      reason               str
+      validated_at         str (ISO date)
+    """
+    if not DECISIONS_PATH.exists():
+        return {}
+    return json.loads(DECISIONS_PATH.read_text())
+
+
+def _load_outlier_sidecar() -> dict:
+    """Read ``outlier_sidecar.json`` from the outlier-detection investigation.
+
+    Missing file ⇒ empty mapping (no cycles get masked).
+
+    Schema: {cell_name: {n_outliers: int, outliers: [{cycle, ...}, ...]}}
+    """
+    if not OUTLIER_SIDECAR_PATH.exists():
+        return {}
+    return json.loads(OUTLIER_SIDECAR_PATH.read_text())
 
 
 def _last_crossing_into_bad(
@@ -115,6 +165,35 @@ def _last_crossing_into_bad(
     return last_fade, n_recovered
 
 
+def _retention_at(
+    regulars: list[dict], baseline: float, target_cycle: int,
+) -> Optional[float]:
+    """Return retention at the largest ``regular_cycle <= target_cycle``.
+
+    Used by ``_process_cell`` when a human decision asserts an outcome at
+    a specific cycle — we still want to report ``final_retention`` from
+    the real data at that cycle (or the nearest preceding cycle that
+    exists, in case the human's asserted cycle isn't present as a
+    regular_cd event).
+
+    Returns None if no regular cycle is ≤ target_cycle (e.g. baseline
+    is past the asserted cycle).
+    """
+    best: Optional[dict] = None
+    for e in regulars:
+        c = e.get("regular_cycle")
+        if c is None or c > target_cycle:
+            continue
+        if best is None or c > best["regular_cycle"]:
+            best = e
+    if best is None:
+        return None
+    cap = best.get("capacity_discharge_ah")
+    if cap is None:
+        return None
+    return float(cap) / float(baseline)
+
+
 def _classification_label_at(status: str,
                               last_fade_cycle: Optional[int],
                               n_regular: int,
@@ -149,14 +228,35 @@ def _classification_label_at(status: str,
     return "excluded", False
 
 
-def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict:
+def _process_cell(
+    d: dict,
+    baseline_cycle: int = DEFAULT_BASELINE_CYCLE,
+    decisions: Optional[dict] = None,
+    outlier_sidecar: Optional[dict] = None,
+) -> dict:
     """Build one label row for a single annotation JSON. Always returns a
     row; cells that can't be ML-trained get status='excluded' with a reason.
 
     ``baseline_cycle`` is the regular_cycle ordinal used as the retention
     denominator. Pre-baseline cycles are dropped from the retention curve
     that the fade detector consumes.
+
+    ``decisions`` (optional) — mapping ``{cell_name: decision_entry}`` from
+    ``investigations/manual_validation/validated/decisions.json``. When a
+    cell's entry has ``exclude_from_ml=true``, the cell is dropped from
+    the cohort with ``exclusion_reason='human_review'``. When the entry
+    has ``last_available_cycle`` set, the retention curve is truncated
+    at that cycle BEFORE fade detection.
+
+    ``outlier_sidecar`` (optional) — mapping ``{cell_name: {outliers: [{cycle, ...}]}}``
+    from ``investigations/outlier_detection/out/outlier_sidecar.json``.
+    Listed cycles are dropped from the retention curve BEFORE fade
+    detection (their measurements are untrustworthy per Pattern A).
+
+    Both arguments default to empty: missing/absent → pre-Phase-2 behavior.
     """
+    decisions = decisions or {}
+    outlier_sidecar = outlier_sidecar or {}
     cell = d.get("cell_name", "?")
     consistency = d.get("cycling_consistency", "no_regular")
     protocol = d.get("protocol_pattern", "other")
@@ -194,6 +294,11 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
         "baseline_dis_ah": None,
         "final_retention": None,
         "n_recovered_crossings": 0,
+        # Manual-validation provenance (Phase 2). Both null/0 by default;
+        # populated only when decisions.json / outlier_sidecar.json have
+        # an entry for this cell that materially affects the row.
+        "truncation_cycle": None,
+        "n_outliers_masked": 0,
     }
     # Initialize the per-threshold classification columns to "excluded"
     # defaults; the late return paths inherit these.
@@ -230,11 +335,31 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
         base_row["exclusion_reason"] = "no_regular"
         return base_row
 
+    # Human-review exclusion (single_rate cells only). User decision in
+    # decisions.json overrides anything the fade detector would conclude.
+    cell_decision = decisions.get(cell, {})
+    if cell_decision.get("exclude_from_ml"):
+        base_row["exclusion_reason"] = "human_review"
+        return base_row
+
     # single_rate path
     regulars = iter_regulars(d)
     if not regulars:
         base_row["exclusion_reason"] = "no_baseline"
         return base_row
+
+    # Low-initial-capacity gate. Any cycle in the first
+    # LOW_INITIAL_CAPACITY_WINDOW with charge or discharge capacity
+    # below LOW_INITIAL_CAPACITY_THRESHOLD_AH means the cell's early
+    # life is unusable as a retention baseline.
+    for e in regulars[:LOW_INITIAL_CAPACITY_WINDOW]:
+        cdis = e.get("capacity_discharge_ah")
+        cchg = e.get("capacity_charge_ah")
+        if (cdis is not None and cdis < LOW_INITIAL_CAPACITY_THRESHOLD_AH) or (
+            cchg is not None and cchg < LOW_INITIAL_CAPACITY_THRESHOLD_AH
+        ):
+            base_row["exclusion_reason"] = "low_initial_capacity"
+            return base_row
 
     baseline_evt = next(
         (e for e in regulars if e["regular_cycle"] == baseline_cycle), None
@@ -248,17 +373,97 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
         base_row["exclusion_reason"] = "no_baseline"
         return base_row
 
-    # Retention curve covers cycles >= baseline only. n_regular reports
-    # the cell's full life (last regular_cycle across ALL regular events,
-    # not just post-baseline ones) — this keeps the per-N classification
-    # rule comparable across baselines (a cell that ran 500 regular
-    # cycles still has n_regular=500 regardless of where the retention
-    # window starts).
-    window = [e for e in regulars if e["regular_cycle"] >= baseline_cycle]
+    n_regular_full = int(regulars[-1]["regular_cycle"])
+
+    # AUTHORITATIVE DECISION PATH. When the human has an entry with
+    # event_type set, the row is determined directly by the decision —
+    # we do NOT run the fade detector or apply the outlier mask. This
+    # is the "manual review is the highest priority" principle: the
+    # output for these cells is whatever the human asserted in
+    # decisions.json. Algorithm-derived values would only confuse the
+    # picture.
+    decision_event_type = cell_decision.get("event_type")
+    decision_last_avail = cell_decision.get("last_available_cycle")
+    if decision_event_type in ("event", "censor"):
+        target_cycle = (
+            int(decision_last_avail)
+            if decision_last_avail is not None else n_regular_full
+        )
+        fr = _retention_at(regulars, baseline, target_cycle)
+        if decision_event_type == "event":
+            status = "faded"
+            last_fade_cycle: Optional[int] = target_cycle
+            n_regular = target_cycle
+        else:  # "censor"
+            status = "in_testing"
+            last_fade_cycle = None
+            n_regular = target_cycle  # full lifetime when null
+
+        base_row.update({
+            "status": status,
+            "exclusion_reason": None,
+            "last_fade_cycle": last_fade_cycle,
+            "n_regular": n_regular,
+            "baseline_dis_ah": float(baseline),
+            "final_retention": float(fr) if fr is not None else None,
+            "n_recovered_crossings": 0,
+            "truncation_cycle": (
+                int(decision_last_avail)
+                if decision_last_avail is not None else None
+            ),
+            "n_outliers_masked": 0,
+        })
+        for N in N_THRESHOLDS:
+            label, trainable = _classification_label_at(
+                status, last_fade_cycle, n_regular, N,
+            )
+            base_row[f"label_n{N}"] = label
+            base_row[f"trainable_n{N}"] = trainable
+        return base_row
+
+    # ALGORITHM PATH (no human decision for this cell). Retention curve
+    # covers cycles >= baseline only AND <= last_available (when the
+    # user truncated via decisions.json) AND not in the outlier set
+    # (when outlier_detection flagged that cycle as untrustworthy).
+    outlier_cycles: set[int] = {
+        int(o["cycle"])
+        for o in outlier_sidecar.get(cell, {}).get("outliers", [])
+    }
+    last_avail = cell_decision.get("last_available_cycle")  # None or int
+
+    window = [
+        e for e in regulars
+        if e["regular_cycle"] >= baseline_cycle
+        and e["regular_cycle"] not in outlier_cycles
+        and (last_avail is None or e["regular_cycle"] <= last_avail)
+    ]
+    if not window:
+        # Pathological: every post-baseline cycle was masked or truncated
+        # away. Treat as no_baseline (no curve to evaluate).
+        base_row["exclusion_reason"] = "no_baseline"
+        return base_row
     cycles = [int(e["regular_cycle"]) for e in window]
     retentions = [float(e["capacity_discharge_ah"]) / float(baseline) for e in window]
-    n_regular = int(regulars[-1]["regular_cycle"])
+
+    # n_regular: full lifetime, but capped at last_available_cycle when
+    # truncated. (Outlier-masked cycles are still "real" cycles that
+    # happened — they only get dropped from fade detection — so they
+    # don't reduce n_regular.)
+    n_regular = (
+        min(n_regular_full, int(last_avail))
+        if last_avail is not None else n_regular_full
+    )
     final_retention = retentions[-1]
+
+    # Count outlier cycles that fell inside the (post-baseline,
+    # pre-truncation) range — these are the masked cycles that actually
+    # affected this run.
+    n_masked = sum(
+        1 for e in regulars
+        if e["regular_cycle"] >= baseline_cycle
+        and e["regular_cycle"] in outlier_cycles
+        and (last_avail is None or e["regular_cycle"] <= last_avail)
+    )
 
     last_fade_cycle, n_recovered_crossings = _last_crossing_into_bad(cycles, retentions)
     status = "faded" if last_fade_cycle is not None else "in_testing"
@@ -271,6 +476,8 @@ def _process_cell(d: dict, baseline_cycle: int = DEFAULT_BASELINE_CYCLE) -> dict
         "baseline_dis_ah": float(baseline),
         "final_retention": float(final_retention),
         "n_recovered_crossings": int(n_recovered_crossings),
+        "truncation_cycle": int(last_avail) if last_avail is not None else None,
+        "n_outliers_masked": n_masked,
     })
     # Per-N classification labels for the kept (faded / in_testing) cells.
     # Excluded cells already have the right defaults from base_row init.
@@ -373,6 +580,7 @@ def selftest() -> int:
     fail += _selftest_classification()
     fail += _selftest_baseline_cycle()
     fail += _selftest_rate_changed()
+    fail += _selftest_phase2_overrides()
     return fail
 
 
@@ -600,15 +808,213 @@ def _selftest_baseline_cycle() -> int:
     return fail
 
 
+def _selftest_phase2_overrides() -> int:
+    """Verify _process_cell honors manual_validation + outlier_sidecar overrides.
+
+    Synthetic cell (10 cycles, fade 1.00→0.93 then 0.83 dip at 9, then
+    0.92). Covers two paths through _process_cell:
+
+      Algorithm path (cells without a decision entry):
+        (1) NO overrides → fade at cycle 9.
+        (2) exclude_from_ml=true → status=excluded, reason=human_review.
+        (3) outlier mask on cycle 9 (no event_type) → algorithm hides
+            the dip → status=in_testing, n_outliers_masked=1.
+
+      Authoritative-decision path (event_type set → algorithm bypassed):
+        (4) event_type="censor", last_available_cycle=8 → in_testing,
+            n_regular=8, n_outliers_masked=0 (mask not applied).
+        (5) event_type="censor", last_available_cycle=null → in_testing,
+            n_regular=10 (full lifetime).
+        (6) event_type="event", last_available_cycle=9 → faded,
+            last_fade_cycle=9, n_regular=9.
+        (7) AR4195 regression: outlier sidecar masks cycles 7-9
+            (would hide the fade under the algorithm path) BUT decision
+            event_type="event" last_available_cycle=9 wins →
+            status=faded, last_fade_cycle=9 regardless.
+    """
+    print("Self-test (Phase 2 overrides):")
+    fail = 0
+
+    # Cap curve: 1..8 are healthy (>0.85), 9 is a one-cycle dip below 0.85,
+    # 10 recovers but the cell only ran 10 cycles total. With RECOVERY_MIN=3,
+    # a dip at 9 followed by only 1 healthy cycle counts as a sticky fade.
+    cap = [1.00, 0.99, 0.98, 0.97, 0.96, 0.95, 0.94, 0.93, 0.83, 0.92]
+    d = {
+        "cell_name": "AR-phase2-test",
+        "cycling_consistency": "single_rate",
+        "protocol_pattern": "synthetic",
+        "cd_events": [
+            {"event_kind": "regular_cd", "regular_cycle": i + 1,
+             "capacity_discharge_ah": cap[i],
+             "capacity_charge_ah": cap[i] + 0.01,
+             "coulombic_efficiency": 0.99}
+            for i in range(len(cap))
+        ],
+    }
+
+    def _expect(case: str, row: dict, expectations: dict) -> None:
+        nonlocal fail
+        for key, exp in expectations.items():
+            got = row.get(key)
+            if got != exp:
+                print(f"  [FAIL] {case}: {key}={got!r} expected {exp!r}")
+                fail += 1
+
+    # (1) No overrides
+    row1 = _process_cell(d, baseline_cycle=1)
+    _expect("baseline (no overrides)", row1, {
+        "status": "faded",
+        "exclusion_reason": None,
+        "last_fade_cycle": 9,
+        "n_regular": 10,
+        "truncation_cycle": None,
+        "n_outliers_masked": 0,
+    })
+    if row1["last_fade_cycle"] == 9:
+        print(f"  [PASS] baseline: cell faded at cycle 9 as expected")
+
+    # (2) exclude_from_ml=true
+    row2 = _process_cell(d, baseline_cycle=1, decisions={
+        "AR-phase2-test": {"exclude_from_ml": True},
+    })
+    _expect("exclude_from_ml=true", row2, {
+        "status": "excluded",
+        "exclusion_reason": "human_review",
+        "last_fade_cycle": None,
+    })
+    if row2["status"] == "excluded":
+        print(f"  [PASS] human_review: cell excluded as expected")
+
+    # (3) outlier sidecar masks cycle 9 — fade detector should not see the dip.
+    row3 = _process_cell(
+        d, baseline_cycle=1,
+        outlier_sidecar={"AR-phase2-test": {"outliers": [{"cycle": 9}]}},
+    )
+    _expect("outlier mask on cycle 9", row3, {
+        "status": "in_testing",
+        "exclusion_reason": None,
+        "last_fade_cycle": None,
+        "n_regular": 10,
+        "n_outliers_masked": 1,
+    })
+    if row3["last_fade_cycle"] is None:
+        print(f"  [PASS] outlier mask: dip at cycle 9 hidden from fade detector")
+
+    # (4) event_type="censor", last_available_cycle=8 → direct assignment
+    row4 = _process_cell(d, baseline_cycle=1, decisions={
+        "AR-phase2-test": {
+            "exclude_from_ml": False,
+            "last_available_cycle": 8,
+            "event_type": "censor",
+            "reason": "test",
+            "validated_at": "2026-05-20",
+        },
+    })
+    _expect("censor with last_available_cycle=8", row4, {
+        "status": "in_testing",
+        "exclusion_reason": None,
+        "last_fade_cycle": None,
+        "n_regular": 8,
+        "truncation_cycle": 8,
+        "n_outliers_masked": 0,
+    })
+    if row4["n_regular"] == 8:
+        print(f"  [PASS] censor decision: n_regular = last_available_cycle")
+
+    # (5) event_type="censor", last_available_cycle=null → use full lifetime
+    row5 = _process_cell(d, baseline_cycle=1, decisions={
+        "AR-phase2-test": {
+            "exclude_from_ml": False,
+            "last_available_cycle": None,
+            "event_type": "censor",
+            "reason": "test",
+            "validated_at": "2026-05-20",
+        },
+    })
+    _expect("censor with last_available_cycle=null", row5, {
+        "status": "in_testing",
+        "last_fade_cycle": None,
+        "n_regular": 10,                # full lifetime
+        "truncation_cycle": None,
+        "n_outliers_masked": 0,
+    })
+
+    # (6) event_type="event", last_available_cycle=9 → status=faded, last_fade=9
+    row6 = _process_cell(d, baseline_cycle=1, decisions={
+        "AR-phase2-test": {
+            "exclude_from_ml": False,
+            "last_available_cycle": 9,
+            "event_type": "event",
+            "reason": "test",
+            "validated_at": "2026-05-20",
+        },
+    })
+    _expect("event with last_available_cycle=9", row6, {
+        "status": "faded",
+        "last_fade_cycle": 9,
+        "n_regular": 9,
+        "truncation_cycle": 9,
+        "n_outliers_masked": 0,
+    })
+    if row6["last_fade_cycle"] == 9 and row6["status"] == "faded":
+        print(f"  [PASS] event decision: last_fade_cycle = last_available_cycle")
+
+    # (7) AR4195 regression: outlier mask would hide the fade, but
+    # decision asserts it anyway → decision wins.
+    row7 = _process_cell(
+        d, baseline_cycle=1,
+        decisions={"AR-phase2-test": {
+            "exclude_from_ml": False,
+            "last_available_cycle": 9,
+            "event_type": "event",
+            "reason": "regression for AR4195",
+            "validated_at": "2026-05-20",
+        }},
+        outlier_sidecar={"AR-phase2-test": {"outliers": [
+            {"cycle": 7}, {"cycle": 8}, {"cycle": 9},
+        ]}},
+    )
+    _expect("AR4195-style: decision overrides outlier mask", row7, {
+        "status": "faded",
+        "last_fade_cycle": 9,
+        "n_regular": 9,
+        "n_outliers_masked": 0,
+    })
+    if row7["status"] == "faded" and row7["last_fade_cycle"] == 9:
+        print(f"  [PASS] AR4195 regression: decision wins over outlier mask")
+
+    if fail:
+        print(f"\n{fail} Phase 2 override self-test cases FAILED")
+    else:
+        print("All Phase 2 override self-test cases PASSED")
+    return fail
+
+
 def main(
     baseline_cycle: int = DEFAULT_BASELINE_CYCLE,
     db_version: str = "A2.2",
 ) -> None:
+    decisions = _load_decisions()
+    outlier_sidecar = _load_outlier_sidecar()
+    print(
+        f"loaded {len(decisions)} manual decisions from "
+        f"{DECISIONS_PATH if DECISIONS_PATH.exists() else '(missing)'}"
+    )
+    print(
+        f"loaded outlier sidecar covering {len(outlier_sidecar)} cells from "
+        f"{OUTLIER_SIDECAR_PATH if OUTLIER_SIDECAR_PATH.exists() else '(missing)'}"
+    )
+
     rows: list[dict] = []
     n_total = 0
     for path, d in iter_annotations():
         n_total += 1
-        rows.append(_process_cell(d, baseline_cycle=baseline_cycle))
+        rows.append(_process_cell(
+            d,
+            baseline_cycle=baseline_cycle,
+            decisions=decisions,
+            outlier_sidecar=outlier_sidecar,
+        ))
 
     if not rows:
         print(f"ERROR: no cells processed", file=sys.stderr)
@@ -627,6 +1033,8 @@ def main(
         "stages_populated": ["labels"],
     })
 
+    latest_link = promote_to_latest(out_dir)
+
     print(f"db_version     = {db_version}")
     print(f"baseline_cycle = {baseline_cycle}")
     print(f"scanned      = {n_total} annotation JSONs")
@@ -634,6 +1042,7 @@ def main(
     print(f"written      = {parquet_path}")
     print(f"               {csv_path}")
     print(f"               {manifest_path}")
+    print(f"latest       = {latest_link} -> {out_dir.name}")
     print()
     print("Status histogram:")
     status_counts = df.group_by("status").len().sort("status")

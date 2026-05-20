@@ -25,6 +25,13 @@ DEFAULT_ANNOT_DIR = "/mnt/data/mliao/battery-ml-workbench/data/A2.2/annotations"
 ANNOT_DIR = Path(os.getenv("BAT_ANNOT_DIR", DEFAULT_ANNOT_DIR))
 DATASETS_DIR = Path(__file__).resolve().parent / "datasets"
 
+# Set once per Python process. labels.main() + features.main() invoked
+# in the same process (e.g. via preprocess.py --all) share one snapshot;
+# standalone runs each get their own. Local time matches the
+# cell_lifetime/results/run/ convention; manifest.json still records
+# generated_at in UTC.
+_PROCESS_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M")
+
 
 def db_version_from_path(annot_dir: Path = ANNOT_DIR) -> str:
     """Parse the DB version tag from the annotation directory path.
@@ -45,10 +52,88 @@ def db_version_from_path(annot_dir: Path = ANNOT_DIR) -> str:
 
 
 def dataset_dir_for(db_version: str, baseline_cycle: int) -> Path:
-    """Return ``datasets/{db_version}_b{baseline_cycle}/`` (created on demand)."""
-    sub = DATASETS_DIR / f"{db_version}_b{baseline_cycle}"
-    sub.mkdir(parents=True, exist_ok=True)
-    return sub
+    """Return the per-process timestamped snapshot dir for this bundle.
+
+    Layout: ``datasets/{db_version}_b{baseline_cycle}/{db_version}_b{baseline_cycle}_{ts}/``
+    where ``ts`` is the YYYYMMDD_HHMM time at which this Python process
+    first imported _common. Calls from the same process always resolve
+    to the same snapshot dir, so labels + features run together (via
+    preprocess.py) share one snapshot.
+
+    Use ``promote_to_latest(snapshot_dir)`` to update the
+    ``{bundle}_latest`` symlink after writing all stage outputs.
+    """
+    bundle = DATASETS_DIR / f"{db_version}_b{baseline_cycle}"
+    snapshot = bundle / f"{db_version}_b{baseline_cycle}_{_PROCESS_TIMESTAMP}"
+    snapshot.mkdir(parents=True, exist_ok=True)
+    return snapshot
+
+
+def promote_to_latest(snapshot_dir: Path) -> Path:
+    """Update ``{bundle}_latest`` symlink to point at ``snapshot_dir``.
+
+    The symlink target is *relative* (just the snapshot dir name, not
+    its absolute path) so the dataset tree is portable across machines
+    and mountpoints. Existing symlink or file at the target is removed
+    first; this is atomic enough for our single-writer workflow.
+
+    Returns the symlink path.
+    """
+    bundle_dir = snapshot_dir.parent
+    latest_link = bundle_dir / f"{bundle_dir.name}_latest"
+    if latest_link.is_symlink() or latest_link.exists():
+        latest_link.unlink()
+    latest_link.symlink_to(snapshot_dir.name, target_is_directory=True)
+    return latest_link
+
+
+def migrate_legacy_bundle(bundle_dir: Path) -> Path | None:
+    """One-shot helper: convert a legacy flat bundle into the snapshot layout.
+
+    If ``bundle_dir`` still has the pre-snapshot layout (parquet/csv/
+    manifest at root, no timestamped subdirs), move every regular file
+    into ``{bundle_dir}/{bundle_dir.name}_{ts}_legacy/`` where ``ts`` is
+    derived from the existing ``manifest.json`` ``generated_at`` field.
+    Then set ``{bundle_dir}_latest`` to point at the new snapshot.
+
+    Returns the new snapshot path, or None if there was nothing to
+    migrate (bundle empty or already migrated).
+    """
+    if not bundle_dir.exists() or not bundle_dir.is_dir():
+        return None
+
+    manifest_path = bundle_dir / "manifest.json"
+    flat_files = [p for p in bundle_dir.iterdir() if p.is_file()]
+    if not flat_files:
+        return None  # Already migrated (only subdirs / symlinks present).
+
+    # Derive a snapshot timestamp from the manifest's generated_at (UTC),
+    # converted to local-time YYYYMMDD_HHMM to match the new convention.
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        gen_at = manifest.get("generated_at")  # e.g. "2026-05-20T17:52:09Z"
+        if gen_at and gen_at.endswith("Z"):
+            dt_utc = datetime.strptime(gen_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+            ts = dt_utc.astimezone().strftime("%Y%m%d_%H%M")
+        else:
+            # No usable timestamp — use file mtime instead.
+            ts = datetime.fromtimestamp(manifest_path.stat().st_mtime).strftime(
+                "%Y%m%d_%H%M"
+            )
+    else:
+        # Fall back to the newest file's mtime.
+        newest = max(flat_files, key=lambda p: p.stat().st_mtime)
+        ts = datetime.fromtimestamp(newest.stat().st_mtime).strftime("%Y%m%d_%H%M")
+
+    snapshot = bundle_dir / f"{bundle_dir.name}_{ts}_legacy"
+    snapshot.mkdir(parents=True, exist_ok=False)
+    for f in flat_files:
+        f.rename(snapshot / f.name)
+
+    promote_to_latest(snapshot)
+    return snapshot
 
 
 def _cohort(cell_name: str) -> str:

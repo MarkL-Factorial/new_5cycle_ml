@@ -1,0 +1,24 @@
+# Sweep #2: production runs reusing the matching nested_cv validation HPs.
+# Covers all 6 (N × baseline) axes and emits predictions for every cell.
+# IMPORTANT ordering constraint: must run AFTER sweep #1 (rf_b3_nested) so
+# that every validation slug resolves through its {slug} symlink to a
+# nested_cv folder (not the smoke tune_inner_cv or, later, sweep #3's
+# tune_inner_cv).
+#
+# Expected runtime: 6 runs × ~15 min ≈ ~1.5h sequential on one node
+# (no tuning — single HP set per fold-collapse via mode/median).
+
+template: ../rf.yaml
+mode: production
+sweep_id: rf_production_from_val_20260516
+
+axes:
+  N: [200, 300, 400]
+  baseline_cycle: [1, 3]
+
+fixed:
+  model: random_forest
+  db_version: A2.2
+  feature_subset: fs_cv
+  seeds_preset: fresh
+  production_params_source: from_validation_run
