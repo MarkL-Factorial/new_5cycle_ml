@@ -100,11 +100,32 @@ def plot_actual_vs_predicted(df: pd.DataFrame, out_path: Path) -> Path:
     return out_path
 
 
+def _feature_label_for_title(out_path: Path) -> str:
+    """Read sibling best_params.json (if present) to render an accurate
+    feature label in the suptitle. Falls back to a generic phrase.
+    """
+    sibling = out_path.parent / "best_params.json"
+    if not sibling.exists():
+        return "ebm_classifier"
+    try:
+        import json
+        meta = json.loads(sibling.read_text())
+        cls_fs = meta.get("feature_subsets", {}).get("classifier")
+        n_feat = meta.get("n_features")
+        if cls_fs and n_feat:
+            return f"ebm_classifier × {cls_fs} ({n_feat} features)"
+    except Exception:
+        pass
+    return "ebm_classifier"
+
+
 def plot_classifier_roc_confusion(df: pd.DataFrame, out_path: Path) -> Path:
     """2×3 grid: ROC top, confusion matrix bottom, one column per N.
 
     Evaluates on cells inside `in_training_set_n{N}` (matches the
-    trainable_n{N} surface used by prior multi-seed runs).
+    trainable_n{N} surface used by prior multi-seed runs). Per-panel
+    metrics (AUC, Acc, F1_pass, F1_fail) live in an in-panel text box
+    so the title stays short and never overflows into siblings.
     """
     fig, axes = plt.subplots(2, 3, figsize=(13, 8.5))
 
@@ -115,28 +136,42 @@ def plot_classifier_roc_confusion(df: pd.DataFrame, out_path: Path) -> Path:
         y_pred = (y_prob >= 0.5).astype(int)
         n_faded = int((sub["status"] == "faded").sum())
         n_censored = int((sub["status"] == "in_testing").sum())
+        n_pass = int(y_true.sum())
+        n_fail = len(y_true) - n_pass
 
         # ROC
         ax = axes[0, col]
         fpr, tpr, _ = roc_curve(y_true, y_prob)
         auc = roc_auc_score(y_true, y_prob)
-        f1 = f1_score(y_true, y_pred)
+        f1_pass = f1_score(y_true, y_pred, pos_label=1)
+        f1_fail = f1_score(y_true, y_pred, pos_label=0)
         acc = accuracy_score(y_true, y_pred)
-        ax.plot(fpr, tpr, color="#1f77b4", linewidth=2,
-                label=f"AUC = {auc:.3f}")
+        ax.plot(fpr, tpr, color="#1f77b4", linewidth=2, label="ROC")
         ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1,
                 label="random")
         ax.set_xlabel("False Positive Rate")
         ax.set_ylabel("True Positive Rate")
         ax.set_title(
-            f"ROC — N={N}\nF1={f1:.3f}, Acc={acc:.3f}, "
-            f"pass={int(y_true.sum())}/{len(y_true)} "
-            f"({n_faded} faded + {n_censored} cens.)"
+            f"N={N}  ({len(y_true)} cells)\n"
+            f"pass={n_pass} / fail={n_fail}  ·  "
+            f"{n_faded} faded + {n_censored} cens.",
+            fontsize=10,
+        )
+        ax.text(
+            0.97, 0.03,
+            f"AUC     = {auc:.3f}\n"
+            f"Acc     = {acc:.3f}\n"
+            f"F1_pass = {f1_pass:.3f}\n"
+            f"F1_fail = {f1_fail:.3f}",
+            transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=9, family="monospace",
+            bbox=dict(boxstyle="round,pad=0.4",
+                      facecolor="white", edgecolor="0.6"),
         )
         ax.set_xlim(-0.02, 1.02)
         ax.set_ylim(-0.02, 1.02)
         ax.grid(True, linestyle=":", alpha=0.6)
-        ax.legend(loc="lower right", fontsize=9)
+        ax.legend(loc="center right", fontsize=8)
         ax.set_aspect("equal")
 
         # Confusion matrix
@@ -155,12 +190,12 @@ def plot_classifier_roc_confusion(df: pd.DataFrame, out_path: Path) -> Path:
                         color=color, fontsize=13, fontweight="bold")
 
     fig.suptitle(
-        "Production — ebm_classifier × fs_a_only (3 features), "
+        f"Production — {_feature_label_for_title(out_path)}, "
         "OOF predictions on trainable_n{N} cells",
-        fontsize=12, y=0.995,
+        fontsize=12,
     )
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    fig.savefig(out_path, dpi=150)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out_path
 
@@ -218,10 +253,10 @@ def plot_classifier_prob_vs_cycle(df: pd.DataFrame, out_path: Path) -> Path:
 
     fig.suptitle(
         "Production — OOF P(pass N) vs cycle life, by N (trainable_n{N} cells)",
-        fontsize=12, y=1.02,
+        fontsize=12,
     )
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=150)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out_path
 

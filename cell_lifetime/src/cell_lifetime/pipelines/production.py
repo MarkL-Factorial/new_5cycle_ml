@@ -8,6 +8,12 @@ CONVENTIONS.md), runs inference on every cell admitted by the loader
 output), and writes a wide `predictions.csv` plus best-params JSON, log,
 and 3 plots to a timestamped run directory.
 
+All four models share the same 13-col feature vector:
+`fs_a_only` (3 cols from the bundle) + `dqdv_v1` (4 cols from
+feature_candidates) + `dop_peak_theta` (6 cols from the full-sweep
+investigations snapshot). The merge happens in-pipeline below, mirroring
+the established `_join_block` pattern from `experiments/exp_v_*`.
+
 Default seed strategy is K=5 INDEPENDENT ensembling: each ensemble
 member runs its own Optuna study (different inner-CV partition →
 different best params), then refits with that seed's params. Per-cell
@@ -24,18 +30,27 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
+import subprocess
 import sys
 import time as _time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import optuna
 import pandas as pd
+import polars as pl
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 from sksurv.metrics import concordance_index_censored
 
+from cell_classifier.data.loader import (
+    _resolve_bundle_dir,
+    _resolve_preprocess_root,
+    column_roles_path,
+)
 from cell_lifetime.data.loader import load_dataset
 from cell_lifetime.models.ebm_classifier import EBMClassifierModel
 from cell_lifetime.models.rsf import RSFModel
@@ -43,6 +58,209 @@ from cell_lifetime.pipelines import production_plots
 
 
 NS = (200, 300, 400)
+
+
+# ---------- Candidate-feature paths (v1 + dop) ------------------------------
+# When feature extraction becomes an automated pipeline these paths will move
+# to the new filer; update only these two constants.
+DQDV_V1_PATH = Path(
+    "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/ml_label_preprocess/"
+    "feature_candidates/dqdv_v1/features.parquet"
+)
+DQDV_V1_COLS = [
+    "dqdv_peak_v_c5_dis",
+    "dqdv_peak_v_shift_c1c5_dis",
+    "dqdv_charge_discharge_hysteresis_c5",
+    "dqdv_cosine_sim_c1c5_dis",
+]
+# Both v1 and dop now live under feature_candidates/ (dop was refreshed
+# from pilot to full mode 2026-05-26; n_cells_full=429). When feature
+# extraction becomes an automated pipeline these two paths will move to
+# the new filer; update only these two constants.
+DOP_PATH = Path(
+    "/mnt/data/mliao/battery-ml-workbench/new_5cycle_ml/ml_label_preprocess/"
+    "feature_candidates/dop_peak_theta/features.parquet"
+)
+DOP_COLS = [
+    "dop_peak_theta_c1_chg",
+    "dop_peak_theta_c5_chg",
+    "dop_peak_theta_c1_dis",
+    "dop_peak_theta_c5_dis",
+    "dop_peak_theta_shift_chg_c1c5",
+    "dop_peak_theta_shift_dis_c1c5",
+]
+
+
+def _load_dqdv() -> pd.DataFrame:
+    return (
+        pl.read_parquet(DQDV_V1_PATH)
+        .select(["cell_name", *DQDV_V1_COLS])
+        .to_pandas()
+        .set_index("cell_name")
+    )
+
+
+def _load_dop() -> pd.DataFrame:
+    return (
+        pl.read_parquet(DOP_PATH)
+        .select(["cell_name", *DOP_COLS])
+        .to_pandas()
+        .set_index("cell_name")
+    )
+
+
+def _join_block(
+    X_base: pd.DataFrame, names: np.ndarray, block: pd.DataFrame,
+    cols: list[str],
+) -> tuple[pd.DataFrame, int]:
+    """Left-join `block[cols]` onto X_base by cell name; NaN-fill misses.
+
+    Returns (augmented_X, n_cells_missing_from_block). Existing model
+    imputers handle the NaNs downstream.
+    """
+    data: dict[str, list[float]] = {c: [] for c in cols}
+    missing = 0
+    for n_ in names:
+        if n_ in block.index:
+            for c in cols:
+                v = block.at[n_, c]
+                data[c].append(float(v) if not pd.isna(v) else float("nan"))
+        else:
+            missing += 1
+            for c in cols:
+                data[c].append(float("nan"))
+    out = X_base.copy()
+    for c in cols:
+        out[c] = data[c]
+    return out, missing
+
+
+# ---------- Reproducibility snapshot ---------------------------------------
+
+def _git_state(repo_dir: Path) -> dict[str, Any]:
+    """Capture branch + HEAD + dirty flag for the cell_lifetime checkout."""
+    def _git(*args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(repo_dir), *args], text=True,
+        ).strip()
+    try:
+        return {
+            "branch": _git("branch", "--show-current"),
+            "head": _git("rev-parse", "HEAD"),
+            "dirty": bool(_git("status", "-s")),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _lib_versions() -> dict[str, str]:
+    """Versions of libraries whose updates can change outputs."""
+    out: dict[str, str] = {}
+    for mod in ("xgboost", "interpret", "sksurv", "optuna",
+                "polars", "pandas", "numpy", "sklearn"):
+        try:
+            m = __import__(mod)
+            out[mod] = getattr(m, "__version__", "?")
+        except ImportError:
+            out[mod] = "missing"
+    return out
+
+
+def _build_regenerate_command(config: dict[str, Any]) -> str:
+    """The exact CLI line a future operator would use to re-run."""
+    parts = ["cell-lifetime", "production"]
+    parts += ["--trials",         str(config["trials"])]
+    parts += ["--inner-cv",       str(config["inner_cv"])]
+    parts += ["--ensemble-seeds", str(config["ensemble_seeds"])]
+    parts += ["--baseline-cycle", str(config["baseline_cycle"])]
+    parts += ["--db-version",     config["db_version"]]
+    parts += ["--classifier-feature-subset", config["classifier_feature_subset"]]
+    parts += ["--rsf-feature-subset",        config["rsf_feature_subset"]]
+    if not config.get("with_extra_features", True):
+        parts += ["--no-extra-features"]
+    if not config.get("make_plots", True):
+        parts += ["--no-plots"]
+    return " ".join(parts)
+
+
+def _snapshot_run_inputs(
+    out_dir: Path,
+    *,
+    config: dict[str, Any],
+    feature_base: str,
+    with_extra_features: bool,
+    baseline_cycle: int,
+    db_version: str,
+    log: logging.Logger,
+) -> Path:
+    """Copy every input parquet/yaml into out_dir/inputs/ and write
+    run_config.json. Called at the start of run_production, before any
+    training, so a crashed run still leaves a triage-able snapshot.
+    """
+    inputs_dir = out_dir / "inputs"
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Resolve symlinks so we record the concrete snapshot dir name
+    # (e.g. A2.2_b1_20260521_1658), not the floating "_latest" alias.
+    bundle_dir = _resolve_bundle_dir(
+        _resolve_preprocess_root(None), db_version, baseline_cycle, None,
+    ).resolve()
+    for fname, target in [
+        ("cell_features.parquet", "cell_features.parquet"),
+        ("cell_labels.parquet",   "cell_labels.parquet"),
+        ("manifest.json",         "bundle_manifest.json"),
+    ]:
+        src = bundle_dir / fname
+        if src.exists():
+            shutil.copy2(src, inputs_dir / target)
+
+    cr_path = column_roles_path(None)
+    shutil.copy2(cr_path, inputs_dir / "column_roles.yaml")
+
+    shutil.copy2(DQDV_V1_PATH, inputs_dir / "dqdv_v1.parquet")
+    dqdv_prov = DQDV_V1_PATH.parent / "provenance.json"
+    if dqdv_prov.exists():
+        shutil.copy2(dqdv_prov, inputs_dir / "dqdv_v1_provenance.json")
+
+    shutil.copy2(DOP_PATH, inputs_dir / "dop_peak_theta.parquet")
+    # Sidecar may be `provenance.json` (feature_candidates convention) or
+    # `manifest.json` (investigations convention); copy whichever exists.
+    for sidecar_name, target in [
+        ("provenance.json", "dop_peak_theta_provenance.json"),
+        ("manifest.json",   "dop_peak_theta_manifest.json"),
+    ]:
+        src = DOP_PATH.parent / sidecar_name
+        if src.exists():
+            shutil.copy2(src, inputs_dir / target)
+
+    repo_dir = Path(__file__).resolve().parents[3]  # cell_lifetime/
+    snapshot_cfg = {
+        "config": config,
+        "feature_base": feature_base,
+        "with_extra_features": with_extra_features,
+        "inputs": {
+            "bundle_dir":  str(bundle_dir),
+            "bundle_name": bundle_dir.name,
+            "column_roles_path": str(cr_path),
+            "dqdv_v1_path": str(DQDV_V1_PATH),
+            "dop_path":     str(DOP_PATH),
+        },
+        "git": _git_state(repo_dir),
+        "library_versions": _lib_versions(),
+        "regenerate_command": _build_regenerate_command(config),
+        "snapshot_written_at": datetime.now().isoformat(),
+    }
+    (out_dir / "run_config.json").write_text(
+        json.dumps(snapshot_cfg, indent=2, default=str)
+    )
+    git = snapshot_cfg["git"]
+    log.info(
+        f"Wrote inputs snapshot to {inputs_dir} "
+        f"(bundle={bundle_dir.name}; "
+        f"git={git.get('head', '?')[:8]}"
+        f"{'+dirty' if git.get('dirty') else ''})"
+    )
+    return inputs_dir
 
 
 # ---------- logging setup ---------------------------------------------------
@@ -289,10 +507,21 @@ def run_production(
     baseline_cycle: int = 1,
     db_version: str = "A2.2",
     classifier_feature_subset: str = "fs_a_only",
-    rsf_feature_subset: str = "fs_cv",
+    rsf_feature_subset: str = "fs_a_only",
+    with_extra_features: bool = True,
     make_plots: bool = True,
 ) -> dict[str, Any]:
     """Production fit: 3 classifiers + 1 RSF, K-seed independent ensemble.
+
+    All four models share the same X built from
+    `feature_subset=rsf_feature_subset` (default `fs_a_only`, 3 cols)
+    optionally augmented with the v1 + dop_peak_theta candidate blocks
+    (10 cols, gated by `with_extra_features=True`).
+
+    The `classifier_feature_subset` kwarg is retained for back-compat; if
+    it disagrees with `rsf_feature_subset` a warning is logged and the
+    rsf value wins (the classifier and RSF must see the same X for the
+    unified-feature pipeline to be coherent).
 
     Writes:
       - out_dir / "predictions.csv"
@@ -309,27 +538,55 @@ def run_production(
     log.info(
         f"Production fit. ensemble_seeds={ensemble_seeds}, trials={trials}, "
         f"inner_cv={inner_cv}, baseline_cycle={baseline_cycle}, "
-        f"db_version={db_version}, classifier_fs={classifier_feature_subset}, "
-        f"rsf_fs={rsf_feature_subset}"
+        f"db_version={db_version}, feature_base={rsf_feature_subset}, "
+        f"with_extra_features={with_extra_features}"
     )
+    if classifier_feature_subset != rsf_feature_subset:
+        log.warning(
+            f"classifier_feature_subset={classifier_feature_subset!r} differs "
+            f"from rsf_feature_subset={rsf_feature_subset!r}; the unified "
+            f"production pipeline uses a single X for both, so the rsf value "
+            f"will be used as the base for the classifier as well."
+        )
+    feature_base = rsf_feature_subset
     log.info(f"Out dir: {out_dir}")
     log.info(f"Log path: {log_path}")
+
+    # Snapshot inputs + config FIRST so a crash mid-training still leaves
+    # the reproducibility bundle on disk.
+    _snapshot_run_inputs(
+        out_dir,
+        config={
+            "trials": trials, "inner_cv": inner_cv,
+            "ensemble_seeds": ensemble_seeds,
+            "baseline_cycle": baseline_cycle, "db_version": db_version,
+            "classifier_feature_subset": classifier_feature_subset,
+            "rsf_feature_subset": rsf_feature_subset,
+            "with_extra_features": with_extra_features,
+            "make_plots": make_plots,
+        },
+        feature_base=feature_base,
+        with_extra_features=with_extra_features,
+        baseline_cycle=baseline_cycle,
+        db_version=db_version,
+        log=log,
+    )
 
     K = max(int(ensemble_seeds), 1)
     seeds = list(range(K))
 
-    # ---- Load RSF data once ------------------------------------------------
+    # ---- Load base dataset once -------------------------------------------
     # Production load uses min_n_regular=5, drop_excluded=False so we PREDICT
     # on cells with n_regular≥5 INCLUDING status='excluded' cells (rate_changed
     # cells that upstream admitted to cell_features.parquet — see
     # CONVENTIONS.md). Training masks below AND with status!='excluded' so
     # those cells flow through inference only, never into training.
     log.info(
-        f"Loading RSF dataset (feature_subset={rsf_feature_subset}, "
+        f"Loading base dataset (feature_subset={feature_base}, "
         f"min_n_regular=5, drop_excluded=False)…"
     )
     ds_cv = load_dataset(
-        N=300, feature_subset=rsf_feature_subset,
+        N=300, feature_subset=feature_base,
         baseline_cycle=baseline_cycle, db_version=db_version,
         min_n_regular=5, drop_excluded=False,
     )
@@ -338,7 +595,7 @@ def run_production(
     n_censored = int((~ds_cv.event).sum())
     log.info(
         f"Dataset: {n_total} cells = {n_faded} faded + {n_censored} censored; "
-        f"RSF features: {ds_cv.X.shape[1]}"
+        f"base features: {ds_cv.X.shape[1]}"
     )
     X_cv_all = ds_cv.X.reset_index(drop=True)
     event_all = ds_cv.event.astype(bool)
@@ -348,6 +605,60 @@ def run_production(
     n_regular_all = ds_cv.n_regular.astype(np.int64)
     status_all = ds_cv.status
     excl_all = ds_cv.exclusion_reason
+
+    # ---- Merge candidate feature blocks (dqdv_v1 + dop_peak_theta) --------
+    # See exp_v_n200_full_audit/run.py — same pattern, same parquets.
+    # The merged X is reused for all 3 classifiers AND the RSF so every
+    # model sees an identical 13-col feature vector.
+    feature_block_labels: list[str] = [feature_base]
+    if with_extra_features:
+        log.info(f"Joining dqdv_v1 ({len(DQDV_V1_COLS)} cols) from {DQDV_V1_PATH}")
+        X_cv_all, miss_v1 = _join_block(
+            X_cv_all, cell_names, _load_dqdv(), DQDV_V1_COLS,
+        )
+        log.info(f"Joining dop_peak_theta ({len(DOP_COLS)} cols) from {DOP_PATH}")
+        X_cv_all, miss_dop = _join_block(
+            X_cv_all, cell_names, _load_dop(), DOP_COLS,
+        )
+        nan_per_col = {
+            c: int(X_cv_all[c].isna().sum())
+            for c in DQDV_V1_COLS + DOP_COLS
+        }
+        log.info(
+            f"  v1 cells missing from parquet: {miss_v1}/{n_total}; "
+            f"dop cells missing from parquet: {miss_dop}/{n_total}; "
+            f"per-col NaN in merged X: {nan_per_col}"
+        )
+        feature_block_labels += ["dqdv_v1", "dop_peak_theta"]
+    feature_block_label = "+".join(feature_block_labels)
+    log.info(
+        f"Unified feature vector: {X_cv_all.shape[1]} cols "
+        f"({feature_block_label})"
+    )
+
+    # Dump the exact 13-col X fed to all 4 models, with cell metadata and
+    # per-N labels side-by-side. Lets a future reader inspect/re-run from
+    # the run dir alone.
+    merged_df = X_cv_all.copy()
+    merged_df.insert(0, "cell_name", cell_names)
+    merged_df["status"] = status_all
+    merged_df["exclusion_reason"] = excl_all
+    merged_df["n_regular"] = n_regular_all
+    labels_df = pl.read_parquet(
+        _resolve_bundle_dir(
+            _resolve_preprocess_root(None), db_version, baseline_cycle, None,
+        ).resolve() / "cell_labels.parquet"
+    ).select([
+        "cell_name", "label_n200", "label_n300", "label_n400",
+        "trainable_n200", "trainable_n300", "trainable_n400",
+        "last_fade_cycle",
+    ]).to_pandas()
+    merged_df = merged_df.merge(labels_df, on="cell_name", how="left")
+    merged_df.to_parquet(out_dir / "merged_features.parquet", index=False)
+    log.info(
+        f"Wrote merged_features.parquet ({len(merged_df)} rows × "
+        f"{len(merged_df.columns)} cols)"
+    )
 
     # Training mask: n_regular>=6 (canonical training cutoff) AND
     # status!='excluded' (rate_changed cells admitted upstream for inference
@@ -373,22 +684,24 @@ def run_production(
     in_training_set: dict[int, np.ndarray] = {}
 
     for N in NS:
-        log.info(f"=== ebm_classifier × {classifier_feature_subset} × N={N} ===")
+        log.info(f"=== ebm_classifier × {feature_block_label} × N={N} ===")
+        # Only need ds_N for the per-N label_mask / y_class; the feature
+        # matrix is the shared merged X_cv_all (same 13 cols for all 4 models).
         ds_N = load_dataset(
-            N=N, feature_subset=classifier_feature_subset,
+            N=N, feature_subset=feature_base,
             baseline_cycle=baseline_cycle, db_version=db_version,
             min_n_regular=5, drop_excluded=False,
         )
         assert (ds_N.cell_names == cell_names).all(), \
-            f"N={N} loader returned different cell ordering than RSF load"
+            f"N={N} loader returned different cell ordering than base load"
         assert (ds_N.event == event_all).all(), \
-            f"N={N} loader returned different event array than RSF load"
+            f"N={N} loader returned different event array than base load"
         assert (ds_N.n_regular == n_regular_all).all(), \
-            f"N={N} loader returned different n_regular than RSF load"
+            f"N={N} loader returned different n_regular than base load"
         assert (ds_N.status == status_all).all(), \
-            f"N={N} loader returned different status array than RSF load"
+            f"N={N} loader returned different status array than base load"
 
-        X_all_N = ds_N.X.reset_index(drop=True)
+        X_all_N = X_cv_all  # shared merged X — identical for all 4 models
         label_mask = ds_N.label_mask.astype(bool)
         y_class = ds_N.y_class.astype(np.int8)
 
@@ -484,7 +797,7 @@ def run_production(
     time_rsf_train = time_all[rsf_train_idx]
     event_rsf_train = event_all[rsf_train_idx]
     log.info(
-        f"=== rsf × {rsf_feature_subset} (train on {n_rsf_train} n_reg≥6 cells; "
+        f"=== rsf × {feature_block_label} (train on {n_rsf_train} n_reg≥6 cells; "
         f"predict on all {n_total}) ==="
     )
     rsf_medians: list[np.ndarray] = []
@@ -606,9 +919,15 @@ def run_production(
         json.dump({
             "ensemble_seeds": K,
             "feature_subsets": {
-                "classifier": classifier_feature_subset,
-                "rsf": rsf_feature_subset,
+                "classifier": feature_block_label,
+                "rsf": feature_block_label,
             },
+            "feature_base": feature_base,
+            "with_extra_features": with_extra_features,
+            "extra_feature_blocks": (
+                ["dqdv_v1", "dop_peak_theta"] if with_extra_features else []
+            ),
+            "n_features": int(X_cv_all.shape[1]),
             "baseline_cycle": baseline_cycle,
             "db_version": db_version,
             "trials": trials,

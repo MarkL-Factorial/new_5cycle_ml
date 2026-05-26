@@ -23,6 +23,28 @@ For the cohort breakdown above, "trainable" semantics are owned by
 loader reads the parquet column `trainable_n{N}` directly into
 `ds.label_mask`. Do not recompute it.
 
+## Production feature vector (unified 13-col)
+
+All four production models (3 EBM classifiers + 1 RSF) share an
+**identical 13-col feature matrix** assembled at the top of
+`pipelines/production.py::run_production` and reused for every model:
+
+| Block | Cols | Source |
+|---|---:|---|
+| `fs_a_only` (bundle base) | 3 | `cell_features.parquet` via the loader's dynamic Tier-A logic |
+| `dqdv_v1` | 4 | `ml_label_preprocess/feature_candidates/dqdv_v1/features.parquet` |
+| `dop_peak_theta` | 6 | `ml_label_preprocess/investigations/drt_dop_features/out/20260522_1532/cell_dop_features.parquet` (full sweep — **not** the 10-cell pilot under `feature_candidates/dop_peak_theta/`) |
+
+Reading and joining the two candidate parquets happens in-pipeline via
+`_load_dqdv` / `_load_dop` / `_join_block`, mirroring the established
+pattern from `experiments/exp_v_*`. The candidate-parquet paths are
+module-level constants (`DQDV_V1_PATH`, `DOP_PATH`); when the feature
+extraction becomes an automated pipeline, only those two constants need
+to change.
+
+The CLI flag `--no-extra-features` disables the v1+dop join and falls
+back to the bundle-only `fs_a_only` base (3 cols) for ablation runs.
+
 ## Production prediction set vs training set (asymmetric)
 
 `cell-lifetime production` uses an **asymmetric filter**:
@@ -164,4 +186,4 @@ prediction; consumers should consult the `in_training_set_n{N}` or
 This file should be updated when a convention changes or a new task
 type is added. Bump the date below.
 
-Last updated: 2026-05-18.
+Last updated: 2026-05-26.

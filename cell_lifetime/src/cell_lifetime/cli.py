@@ -153,8 +153,17 @@ def _build_production_parser(p: argparse.ArgumentParser) -> None:
                    help="K for independent ensemble (default 5; K=1 disables ensembling)")
     p.add_argument("--baseline-cycle", type=int, default=1, choices=[1, 2, 3, 4])
     p.add_argument("--db-version", default="A2.2")
-    p.add_argument("--classifier-feature-subset", default="fs_a_only")
-    p.add_argument("--rsf-feature-subset", default="fs_cv")
+    p.add_argument("--classifier-feature-subset", default="fs_a_only",
+                   help="bundle base for the classifier; kept for back-compat. "
+                        "Must equal --rsf-feature-subset under the unified "
+                        "13-col v1+dop pipeline")
+    p.add_argument("--rsf-feature-subset", default="fs_a_only",
+                   help="bundle base used by ALL 4 models. Default fs_a_only "
+                        "(3 cols), augmented in-pipeline with dqdv_v1 (4) + "
+                        "dop_peak_theta (6) unless --no-extra-features is set")
+    p.add_argument("--no-extra-features", action="store_true",
+                   help="disable the dqdv_v1 + dop_peak_theta join; fall back "
+                        "to the bundle base alone (fs_a_only → 3 cols)")
     p.add_argument("--out-root", default=None,
                    help="default: cell_lifetime/results/run")
     p.add_argument("--no-plots", action="store_true",
@@ -198,6 +207,7 @@ def _production(args: argparse.Namespace) -> int:
         db_version=args.db_version,
         classifier_feature_subset=args.classifier_feature_subset,
         rsf_feature_subset=args.rsf_feature_subset,
+        with_extra_features=not args.no_extra_features,
         make_plots=not args.no_plots,
     )
 
