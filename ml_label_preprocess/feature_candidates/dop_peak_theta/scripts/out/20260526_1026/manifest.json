@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "db_version": "A2.2",
+  "annot_dir": "/mnt/data/mliao/battery-ml-workbench/data/A2.2/annotations",
+  "generated_at": "2026-05-26T17:33:59+00:00",
+  "mode": "full",
+  "n_cells_attempted": 470,
+  "n_cells_full": 429,
+  "feature_columns": [
+    "dop_peak_theta_c1_chg",
+    "dop_peak_theta_c5_chg",
+    "dop_peak_theta_c1_dis",
+    "dop_peak_theta_c5_dis",
+    "dop_peak_theta_shift_chg_c1c5",
+    "dop_peak_theta_shift_dis_c1c5"
+  ],
+  "params": {
+    "charge_window_min": 10.0,
+    "discharge_window_min": 5.0,
+    "fit_config": {
+      "vmm_epsilon": 0.5,
+      "l2_lambda_0": 100.0,
+      "dop_l2_lambda_0": 10.0,
+      "max_iter": 500
+    }
+  }
+}

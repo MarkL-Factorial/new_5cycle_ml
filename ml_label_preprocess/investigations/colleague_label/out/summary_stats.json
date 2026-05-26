@@ -1,0 +1,64 @@
+{
+  "n_colleague_total": 208,
+  "n_joined": 202,
+  "n_colleague_only": 6,
+  "colleague_only_cells": [
+    "AR3969",
+    "AR4137",
+    "AR4200",
+    "AR4279",
+    "AR4280",
+    "R1348"
+  ],
+  "n_primary_pool": 180,
+  "n_agree": 174,
+  "n_disagree": 6,
+  "agreement_pct": 0.9666666666666667,
+  "category_counts": {
+    "agree_pass": 124,
+    "agree_bad": 50,
+    "disagree_we_pass_they_bad": 2,
+    "disagree_we_bad_they_pass": 4,
+    "ours_censor": 10,
+    "ours_excluded": 12
+  },
+  "confusion_matrix": {
+    "good": {
+      "pass": 124,
+      "bad": 4,
+      "censor": 1,
+      "excluded": 2
+    },
+    "bad": {
+      "pass": 2,
+      "bad": 50,
+      "censor": 9,
+      "excluded": 10
+    }
+  },
+  "per_cohort": {
+    "AR": {
+      "n_total": 181,
+      "n_primary": 164,
+      "n_agree": 158,
+      "n_disagree": 6,
+      "agreement_pct": 0.9634146341463414
+    },
+    "0MC2": {
+      "n_total": 20,
+      "n_primary": 15,
+      "n_agree": 15,
+      "n_disagree": 0,
+      "agreement_pct": 1.0
+    },
+    "other": {
+      "n_total": 1,
+      "n_primary": 1,
+      "n_agree": 1,
+      "n_disagree": 0,
+      "agreement_pct": 1.0
+    }
+  },
+  "anomaly_cell": "0MC2-251022-004",
+  "anomaly_in_data": true
+}

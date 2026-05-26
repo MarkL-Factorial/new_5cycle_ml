@@ -1,0 +1,11 @@
+cell_name,cohort,has_c1_chg,has_c5_chg,has_c1_dis,has_c5_dis,dop_ok_c1_chg,dop_ok_c5_chg,dop_ok_c1_dis,dop_ok_c5_dis,fit_time_s_total,n_features_success,error_msg
+0MC2-251022-001,0MC,true,true,true,true,true,true,true,true,7.72939170524478,6,""
+0MC2-251022-002,0MC,true,true,true,true,true,true,true,true,7.2685541883111,6,""
+0MC2-251022-003,0MC,true,true,true,true,true,true,true,true,4.734439428895712,6,""
+0MC2-251022-004,0MC,true,true,true,true,true,true,true,true,8.294853709638119,6,""
+0MC2-251028-002,0MC,true,true,true,true,true,true,true,true,7.4958987683057785,6,""
+AR-2736,AR,true,true,true,true,true,true,true,true,12.748143535107374,6,""
+AR-3420,AR,true,true,true,true,true,true,true,true,5.32798894867301,6,""
+AR-3421,AR,true,true,true,true,true,true,true,true,6.617825843393803,6,""
+AR-3422,AR,true,true,true,true,true,true,true,true,8.61774842813611,6,""
+AR-3423,AR,true,true,true,true,true,true,true,true,7.946556583046913,6,""

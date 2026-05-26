@@ -1,0 +1,49 @@
+{
+  "name": "dop_peak_theta",
+  "promoted_at": "2026-05-22T20:37:30+00:00",
+  "promoted_by": "Mark Liao",
+  "source": {
+    "investigation": "investigations/drt_dop_features",
+    "snapshot": "investigations/drt_dop_features/out/20260522_1532",
+    "parquet_filename": "cell_dop_features.parquet",
+    "manifest": {
+      "db_version": "A2.2",
+      "schema_version": 1,
+      "generated_at": "2026-05-22T22:33:51+00:00",
+      "mode": "full",
+      "n_cells_attempted": 470,
+      "n_cells_full": 429
+    }
+  },
+  "feature_columns": [
+    "dop_peak_theta_c1_chg",
+    "dop_peak_theta_c5_chg",
+    "dop_peak_theta_c1_dis",
+    "dop_peak_theta_c5_dis",
+    "dop_peak_theta_shift_chg_c1c5",
+    "dop_peak_theta_shift_dis_c1c5"
+  ],
+  "notes": "DOP peak \u03b8 features from hybrid-drt fit_chrono on the first 10 min of charge and 5 min of discharge for cycles 1 + 5. Full sweep: 470 cells attempted, 429 with all 6 features non-NaN; failures split between c1_chg DOP non-convergence (~20 cells) and missing regular cycles in the annotation (~8 cells). The copied scripts/extraction.py emits exactly these 6 columns.",
+  "merged_in": [
+    {
+      "merged_at": "2026-05-26T16:36:13+00:00",
+      "snapshot": "investigations/drt_dop_features/out/20260526_1204",
+      "parquet_filename": "cell_dop_features.parquet",
+      "cells": [
+        "0MC6-260514-R002",
+        "0MC6-260514-R003",
+        "0MC6-260514-R004",
+        "0MC6-260514-R005",
+        "0MC6-260514-R006"
+      ],
+      "manifest": {
+        "db_version": "A2.2",
+        "schema_version": 1,
+        "generated_at": "2026-05-26T16:18:12+00:00",
+        "mode": "subset",
+        "n_cells_attempted": 5,
+        "n_cells_full": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "name": "dqdv_v2",
+  "promoted_at": "2026-05-22T20:37:30+00:00",
+  "promoted_by": "Mark Liao",
+  "source": {
+    "investigation": "investigations/dqdv_features",
+    "snapshot": "investigations/dqdv_features/out/20260522_1047",
+    "parquet_filename": "cell_dqdv_features_v2.parquet",
+    "manifest": {
+      "db_version": "A2.2",
+      "schema_version": 2,
+      "generated_at": "2026-05-22T14:49:06+00:00",
+      "mode": "full",
+      "n_cells_attempted": 470,
+      "n_cells_full": 462
+    }
+  },
+  "feature_columns": [
+    "dqv_norm_c5_c1_var_log10",
+    "dqv_norm_c5_c1_min",
+    "dqv_norm_c5_c1_mean",
+    "dqv_norm_c5_c1_skew"
+  ],
+  "notes": "v2 Severson \u0394Q(V) statistics (4 cols) extracted from cycle 1 + cycle 5. Promoted because the parallel dQ/dV downstream experiments (cell_lifetime/experiments/exp_p, exp_q) demonstrate these features add predictive signal over baseline. The copied scripts/extraction.py also emits the v1 (peak-shape) feature columns \u2014 see candidate dqdv_v1.",
+  "merged_in": [
+    {
+      "merged_at": "2026-05-26T16:04:56+00:00",
+      "snapshot": "investigations/dqdv_features/out/20260526_1204",
+      "parquet_filename": "cell_dqdv_features_v2.parquet",
+      "cells": [
+        "0MC6-260514-R002",
+        "0MC6-260514-R003",
+        "0MC6-260514-R004",
+        "0MC6-260514-R005",
+        "0MC6-260514-R006"
+      ],
+      "manifest": {
+        "db_version": "A2.2",
+        "schema_version": 2,
+        "generated_at": "2026-05-26T16:04:20+00:00",
+        "mode": "subset",
+        "n_cells_attempted": 5,
+        "n_cells_full": 5
+      }
+    }
+  ]
+}
