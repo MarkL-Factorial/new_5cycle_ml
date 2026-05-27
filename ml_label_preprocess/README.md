@@ -1,4 +1,4 @@
-# `ml_label_preprocess_v3`
+# `ml_label_preprocess` (v3 pipeline)
 
 Per-cell **labels** and **features** for the battery dataset's first-5-cycle
 ML task. v3 is the current working pipeline; v1 / v2 are frozen as
@@ -17,46 +17,88 @@ bundle; both axes always appear in the path.
 ## Output layout
 
 ```
-ml_label_preprocess_v3/
-├── datasets/
-│   ├── A2.2_b1/                    # DB A2.2, baseline cycle 1
-│   │   ├── cell_labels.parquet
-│   │   ├── cell_labels.csv
-│   │   ├── cell_features.parquet
-│   │   ├── cell_features.csv
-│   │   ├── cell_features_status.csv
-│   │   └── manifest.json
-│   ├── A2.2_b3/                    # same DB, baseline cycle 3
-│   │   └── ...
-│   └── A2.3_b1/                    # future DB (next regeneration)
-│       └── ...
-├── preprocess.py
-├── _common.py
-├── labels.py
-├── features.py
-├── column_roles.yaml
+ml_label_preprocess/
+├── datasets/                       Production outputs (gitignored)
+│   ├── A2.2_b1/                    DB A2.2, baseline cycle 1
+│   │   ├── A2.2_b1_20260520_1611/     timestamped per-run snapshot
+│   │   ├── A2.2_b1_20260521_1658/
+│   │   ├── A2.2_b1_20260526_1201/     newest physical snapshot
+│   │   └── A2.2_b1_latest -> A2.2_b1_20260526_1201
+│   │       ├── cell_labels.parquet
+│   │       ├── cell_labels.csv
+│   │       ├── cell_features.parquet
+│   │       ├── cell_features.csv
+│   │       ├── cell_features_status.csv
+│   │       └── manifest.json
+│   └── A2.2_b3/                    same DB, baseline cycle 3 (same shape)
+├── curation/                       Outlier-detection + decisions.json (production override layer)
+├── investigations/                 Exploratory feature investigations (tier 3 — see below)
+├── feature_candidates/             Curated candidate feature sets (tier 2 — see below)
+├── preprocess.py                   CLI dispatcher
+├── _common.py                      Shared helpers
+├── labels.py                       Fade-status + per-N classification labels
+├── features.py                     41-column production features (tier 1)
+├── column_roles.yaml               Column-role manifest (data leakage guard)
+├── KNOWN_ISSUES.md                 Stage-C KWW fit edge cases
+├── preprocess_extension_feasibility.md   Design doc for Stages A/B/C
 └── README.md
 ```
 
-The slug `{db_version}_b{baseline_cycle}` is the only place these two axes
-appear; filenames inside the bundle stay fixed. `manifest.json` looks like:
+Each pipeline run writes a fresh `datasets/{db_version}_b{baseline_cycle}/{slug}_{YYYYMMDD_HHMM}/`
+snapshot and bumps the sibling `{slug}_latest` symlink to point at it.
+Downstream consumers pin to the `_latest` symlink unless they need a
+specific frozen reference. Filenames inside any snapshot stay fixed.
+
+`manifest.json` (from the current `A2.2_b1_latest`) looks like:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "db_version": "A2.2",
-  "baseline_cycle": 3,
+  "baseline_cycle": 1,
   "annot_dir": "/mnt/data/mliao/battery-ml-workbench/data/A2.2/annotations",
-  "generated_at": "2026-05-14T12:30:00Z",
-  "n_cells_labels": 455,
-  "n_cells_features": 360,
-  "column_roles_sha256": "abcd1234...",
+  "generated_at": "2026-05-26T16:10:05Z",
+  "n_cells_labels": 476,
+  "n_cells_features": 464,
+  "column_roles_sha256": "60c1be9...c930bc4",
   "stages_populated": ["features", "labels"]
 }
 ```
 
 `stages_populated` is the union of what's been run — running `--labels`
 then `--features` produces the same final manifest as `--all`.
+
+## Three tiers of feature work
+
+Feature engineering is organized into three tiers so that messy
+exploration doesn't pollute the production pipeline:
+
+- **Tier 1 — production (`features.py`)**: the 41 columns consumed by
+  the production training pipeline. Sacred. Only changes when a
+  feature is fully proven. Output: `datasets/{db}_b{N}/.../cell_features.parquet`.
+- **Tier 2 — candidates (`feature_candidates/`)**: curated feature
+  families that are promising enough to use in downstream classifier
+  experiments but not yet ready for production. Each candidate is a
+  self-contained folder (`features.parquet` + `provenance.json` +
+  reference `scripts/`). Refresh is a deliberate manual copy.
+  Currently: `dqdv_v1` (peak-shape, 4 cols), `dqdv_v2` (Severson ΔQ
+  stats, 4 cols), `dop_peak_theta` (DOP θ, 6 cols).
+- **Tier 3 — investigations (`investigations/`)**: exploratory
+  feature investigations and validation audits. Things here may be
+  abandoned or reshaped without notice. Each subfolder snapshots its
+  own `out/{ts}/` runs and is otherwise self-contained. Currently:
+  `dqdv_features`, `drt_dop_features`, `colleague_label`,
+  `jump_detection`.
+
+The **`curation/`** pipeline sits orthogonally to the tiers: it's the
+human-in-the-loop override layer (outlier detection, sustained-step
+review, `decisions.json`) consumed by `labels.py` during the
+production label build.
+
+See each subfolder's `README.md` for details. Promotion path is one
+direction: an `investigation` that proves itself gets promoted into
+`feature_candidates/`; a candidate that fully proves itself eventually
+graduates into `features.py`.
 
 ## v3 vs v2 (back-compat NOT preserved)
 
@@ -126,12 +168,17 @@ so std is undefined.)
 ## Files in this directory
 
 ```
-preprocess.py            CLI dispatcher (thin) — --baseline-cycle, --db-version, --selftest
-labels.py                Fade-status + per-N classification labels
-features.py              41-column per-cell feature extraction (Tiers A/B/C complete)
-_common.py               Shared: paths, _cohort, annotation iteration, dataset_dir_for, write_manifest
-column_roles.yaml        Schema manifest (schema_version: 2)
-datasets/                Output bundles, one per (db_version, baseline_cycle)
+preprocess.py                          CLI dispatcher (thin) — --baseline-cycle, --db-version, --selftest, --cells
+labels.py                              Fade-status + per-N classification labels
+features.py                            41-column per-cell feature extraction (Tiers A/B/C complete)
+_common.py                             Shared: paths, _cohort, annotation iteration, dataset_dir_for, write_manifest, promote_to_latest
+column_roles.yaml                      Column-role manifest (schema_version: 2 — separate from dataset bundle's schema_version)
+KNOWN_ISSUES.md                        Stage-C KWW fit edge cases
+preprocess_extension_feasibility.md    Design doc for Stages A/B/C
+datasets/                              Production output bundles, one per (db_version, baseline_cycle); timestamped snapshots + _latest symlink
+curation/                              Outlier detection + sustained-step review + decisions.json (production override layer)
+investigations/                        Tier 3 — exploratory feature investigations (see "Three tiers" above)
+feature_candidates/                    Tier 2 — curated candidate feature sets (see "Three tiers" above)
 ```
 
 ## ⚠ Cycle indexing: this pipeline DIFFERS from the legacy ML pipeline by design
@@ -199,7 +246,7 @@ data leakage. Example:
 
 ```python
 import yaml
-m = yaml.safe_load(open("ml_label_preprocess_v3/column_roles.yaml"))
+m = yaml.safe_load(open("ml_label_preprocess/column_roles.yaml"))
 feature_cols = [c["name"] for c in m["datasets"]["cell_features"]["columns"]
                 if c["role"] == "feature"]
 label_cols   = [c["name"] for c in m["datasets"]["cell_labels"]["columns"]
@@ -251,24 +298,25 @@ training** (`trainable_n{N} == False`). Including censored cells would
 inject pseudo-`pass` labels (because the cell hasn't failed *yet*) and
 bias the model towards optimism.
 
-### Distributions on the current A2.2 dataset (455 cells)
+### Distributions on the current A2.2 dataset (476 cells, from `A2.2_b1_latest` snapshot 20260526_1201)
 
 | Label | N=200 | N=300 | N=400 |
 |---|---:|---:|---:|
-| `pass`     | 223 | 157 | 118 |
-| `bad`      |  68 |  91 | 115 |
-| `censor`   | 147 | 190 | 205 |
-| `excluded` |  17 |  17 |  17 |
-| **trainable** | **291 (64%)** | **248 (55%)** | **233 (51%)** |
+| `pass`     | 219 | 150 | 114 |
+| `bad`      |  58 |  83 | 105 |
+| `censor`   | 133 | 177 | 191 |
+| `excluded` |  66 |  66 |  66 |
+| **trainable** | **277 (58%)** | **233 (49%)** | **219 (46%)** |
 
 As N grows, more cells fall into `censor` (haven't reached N yet) and
 `bad` shifts to include later-faded cells; `pass` therefore shrinks.
-The N=400 row is approximately balanced (118 pass vs 115 bad) — good
-for binary classification — but heavily 0MC-censored: at N=400 the
-0MC cohort contributes only 14 pass + 13 bad, while AR contributes
-104 + 102. **A model trained at N=400 will be dominated by AR
-chemistry.** For 0MC-focused work, use N=200 (more 0MC cells have
-reached the threshold).
+The N=400 row is approximately balanced (114 pass vs 105 bad) — good
+for binary classification — but heavily AR-dominated: at N=400 the
+0MC cohort contributes only 14 pass + 16 bad (30 trainable), while AR
+contributes 100 pass + 89 bad (189 trainable). **A model trained at
+N=400 will be dominated by AR chemistry.** For 0MC-focused work, use
+N=200 (more 0MC cells have reached the threshold there: 27 pass + 9
+bad = 36 trainable 0MC vs 192 pass + 49 bad = 241 trainable AR).
 
 ### Usage in training scripts
 
@@ -276,13 +324,13 @@ reached the threshold).
 import polars as pl
 import yaml
 
-bundle = "ml_label_preprocess_v3/datasets/A2.2_b1"
+bundle = "ml_label_preprocess/datasets/A2.2_b1/A2.2_b1_latest"
 labels = pl.read_parquet(f"{bundle}/cell_labels.parquet")
 features = pl.read_parquet(f"{bundle}/cell_features.parquet")
 df = labels.join(features, on="cell_name", how="inner")
 
 # Read feature subset from manifest (avoids leakage)
-m = yaml.safe_load(open("ml_label_preprocess_v3/column_roles.yaml"))
+m = yaml.safe_load(open("ml_label_preprocess/column_roles.yaml"))
 fs_cv = m["subsets"]["fs_cv"]["members"]                     # 12 FS_CV features
 all_features = [c["name"] for c in m["datasets"]["cell_features"]["columns"]
                 if c["role"] == "feature"]                   # all 41 feature cols
@@ -354,9 +402,14 @@ predict_only = (labels["status"] == "excluded") & (labels["n_regular"] >= 5)
 train_eligible = labels[f"trainable_n{N}"]
 ```
 
-A2.2 ground truth (as of 2026-05-19): all 9 rate_changed cells in A2.2
-satisfy the admission gate (`regime[0].n_regular_cd ∈ {5, 5, 5, 5, 5, 5,
-5, 82, 437}`), so all 9 flow through to `cell_features.parquet`.
+A2.2 ground truth (as of 2026-05-26, from `A2.2_b1_latest`): 34
+rate_changed cells total. 30 satisfy the admission gate
+(`regime[0].n_regular_cd >= 5`) and flow through to
+`cell_features.parquet`; the remaining 4 are fully excluded
+(`regime[0].n_regular_cd == 4`, so the rate change lands before cycle
+5). The `n_regular_pre_rate_change` distribution across all 34 is
+roughly {4×4, 26×5, 1×15, 1×82, 1×437} — most rate changes happen at
+the c5/c6 boundary, with a long tail of late changes.
 
 ## Implementation stages
 
@@ -413,12 +466,16 @@ import json
 from pathlib import Path
 import polars as pl
 
-bundle = Path("ml_label_preprocess_v3/datasets/A2.2_b1")
+bundle = Path("ml_label_preprocess/datasets/A2.2_b1/A2.2_b1_latest")
 manifest = json.loads((bundle / "manifest.json").read_text())
-assert manifest["schema_version"] == 2
+assert manifest["schema_version"] == 1
 labels   = pl.read_parquet(bundle / "cell_labels.parquet")
 features = pl.read_parquet(bundle / "cell_features.parquet")
 ```
 
-`ml_classification_v2/data.py::load_dataset(N, baseline_cycle=…, db_version=…)`
-does this wrapping for the classifier and is the recommended entry point.
+The downstream `cell_lifetime` package (`cell_lifetime/src/cell_lifetime/data/loader.py`)
+wraps this read with regression + survival target derivation and is
+the recommended entry point for training. It in turn imports
+`cell_classifier.data.loader` for the bundle-resolution and
+column-role plumbing — both already understand the
+`{slug}_latest` symlink convention above.

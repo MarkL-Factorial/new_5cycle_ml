@@ -23,9 +23,16 @@ from Severson et al. plus three shape descriptors. Source:
 
 ## Provenance
 
-See [`provenance.json`](provenance.json). Source:
+See [`provenance.json`](provenance.json). Primary source:
 `investigations/dqdv_features/out/20260522_1047/cell_dqdv_features_v2.parquet` —
-462/470 cells full, db_version `A2.2`, schema_version 2.
+470 attempted, 462 with all 4 features non-NaN, db_version `A2.2`,
+schema_version 2, mode `full`.
+
+Plus 5 cells merged in from a `--cells` partial run; see
+`provenance.json:merged_in[*]` for the structured audit trail.
+
+Total `features.parquet` rows = `source.manifest.n_cells_attempted` (470)
++ union of `merged_in[*].cells` (5) = **475**.
 
 ## Refresh
 
