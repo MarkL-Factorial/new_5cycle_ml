@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import optuna
 import pandas as pd
@@ -91,22 +92,26 @@ DOP_COLS = [
 ]
 
 
-def _load_dqdv() -> pd.DataFrame:
+def _load_block(path: Path, cols: list[str]) -> pd.DataFrame:
+    """Load a feature-candidate block parquet, return cell_name-indexed DF.
+
+    Used by run_production (defaults to DQDV_V1_PATH / DOP_PATH) and by
+    run_predict (paths from predict_manifest.json or CLI overrides).
+    """
     return (
-        pl.read_parquet(DQDV_V1_PATH)
-        .select(["cell_name", *DQDV_V1_COLS])
+        pl.read_parquet(path)
+        .select(["cell_name", *cols])
         .to_pandas()
         .set_index("cell_name")
     )
+
+
+def _load_dqdv() -> pd.DataFrame:
+    return _load_block(DQDV_V1_PATH, DQDV_V1_COLS)
 
 
 def _load_dop() -> pd.DataFrame:
-    return (
-        pl.read_parquet(DOP_PATH)
-        .select(["cell_name", *DOP_COLS])
-        .to_pandas()
-        .set_index("cell_name")
-    )
+    return _load_block(DOP_PATH, DOP_COLS)
 
 
 def _join_block(
@@ -501,7 +506,7 @@ def _true_pass(status: str, event: bool, last_fade: float, n_reg: int, N: int) -
 def run_production(
     *,
     out_dir: Path,
-    trials: int = 30,
+    trials: int = 50,
     inner_cv: int = 5,
     ensemble_seeds: int = 5,
     baseline_cycle: int = 1,
@@ -678,6 +683,13 @@ def run_production(
         f"{n_inference_only_excluded}"
     )
 
+    # ---- Model-persistence dir (joblib dumps + predict_manifest.json) -----
+    # Folder name carries the run timestamp so it's self-identifying even
+    # if copied out of its parent run dir.
+    models_dir = out_dir / f"models_{out_dir.name}"
+    models_dir.mkdir(exist_ok=True)
+    persisted_models: list[dict[str, Any]] = []
+
     # ---- Per-N classifier training (independent K-seed ensemble) ----------
     best_params: dict[str, Any] = {}
     classifier_predictions: dict[int, dict[str, np.ndarray]] = {}
@@ -755,6 +767,15 @@ def run_production(
             member_bests.append(best)
             member_aucs.append(auc_best)
 
+            joblib_name = f"ebm_classifier_n{N}_seed{k}.joblib"
+            joblib.dump(model, models_dir / joblib_name)
+            persisted_models.append({
+                "head": f"ebm_classifier_n{N}",
+                "horizon": N,
+                "seed": k,
+                "path": joblib_name,
+            })
+
         prob_stack = np.stack(member_probs, axis=0)  # (K, n_total)
         oof_stack = np.stack(member_oofs, axis=0)     # (K, n_total)
         prob_mean = prob_stack.mean(axis=0)
@@ -817,6 +838,16 @@ def run_production(
 
         rsf_model = RSFModel({**best, "low_memory": False, "random_state": k})
         rsf_model.fit(X_rsf_train, time=time_rsf_train, event=event_rsf_train)
+
+        rsf_joblib_name = f"rsf_seed{k}.joblib"
+        joblib.dump(rsf_model, models_dir / rsf_joblib_name)
+        persisted_models.append({
+            "head": "rsf",
+            "horizon": None,
+            "seed": k,
+            "path": rsf_joblib_name,
+        })
+
         sfs = rsf_model.predict_survival_curve(X_cv_all)
         t_cap = float(time_rsf_train.max())  # cap from TRAINING distribution
         median = np.array(
@@ -846,6 +877,41 @@ def run_production(
         "n_features": int(X_cv_all.shape[1]),
         "t_cap": float(time_rsf_train.max()),
     }
+
+    # ---- Write predict_manifest.json --------------------------------------
+    # Captures everything `run_predict` needs to load the persisted ensemble
+    # and score new cells: feature column order, source parquet paths, RSF
+    # t_cap, and per-member joblib filenames.
+    bundle_dir_resolved = _resolve_bundle_dir(
+        _resolve_preprocess_root(None), db_version, baseline_cycle, None,
+    ).resolve()
+    manifest = {
+        "schema_version": 1,
+        "snapshot_written_at": datetime.now().isoformat(),
+        "ensemble_seeds": K,
+        "feature_columns": list(X_cv_all.columns),
+        "feature_base": feature_base,
+        "extra_feature_blocks": (
+            ["dqdv_v1", "dop_peak_theta"] if with_extra_features else []
+        ),
+        "n_features": int(X_cv_all.shape[1]),
+        "horizons": list(NS),
+        "rsf_t_cap": float(time_rsf_train.max()),
+        "inputs": {
+            "bundle_name": bundle_dir_resolved.name,
+            "cell_features_path": str(bundle_dir_resolved / "cell_features.parquet"),
+            "dqdv_v1_path": str(DQDV_V1_PATH),
+            "dop_path": str(DOP_PATH),
+        },
+        "models": persisted_models,
+    }
+    (models_dir / "predict_manifest.json").write_text(
+        json.dumps(manifest, indent=2, default=str)
+    )
+    log.info(
+        f"  Wrote {len(persisted_models)} .joblib files + predict_manifest.json "
+        f"to {models_dir}"
+    )
 
     # ---- Assemble predictions.csv -----------------------------------------
     log.info(f"=== Assembling predictions.csv ({n_total} rows) ===")

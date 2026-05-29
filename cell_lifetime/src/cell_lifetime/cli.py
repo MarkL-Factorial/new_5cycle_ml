@@ -1,9 +1,12 @@
-"""CLI entry point: `cell-lifetime run|production`.
+"""CLI entry point: `cell-lifetime run|production|predict`.
 
 Subcommands:
   - `run`         — single experiment with 80/20 stratified holdout (research surface)
   - `production`  — full production fit on trainable_n{N}, write per-cell predictions
                     to `cell_lifetime/results/run/<YYYYMMDD_HHMM>/`
+  - `predict`     — load persisted ensemble from a prior production run dir and
+                    score every cell in the input feature parquets (defaults to the
+                    same parquets the run used). No retraining.
 """
 
 from __future__ import annotations
@@ -145,8 +148,8 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _build_production_parser(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--trials", type=int, default=30,
-                   help="Optuna trials per ensemble member (default 30)")
+    p.add_argument("--trials", type=int, default=50,
+                   help="Optuna trials per ensemble member (default 50)")
     p.add_argument("--inner-cv", type=int, default=5,
                    help="K for KFold inner CV (default 5)")
     p.add_argument("--ensemble-seeds", type=int, default=5,
@@ -224,6 +227,45 @@ def _production(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_predict_parser(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--run-dir", default=None,
+        help="path to a production run dir containing a models_<ts>/ folder "
+             "(default: cell_lifetime/results/run/latest)",
+    )
+    p.add_argument(
+        "--cell-features", default=None,
+        help="override cell_features.parquet path (default: from predict_manifest.json)",
+    )
+    p.add_argument("--dqdv", default=None,
+                   help="override dqdv_v1 features.parquet path")
+    p.add_argument("--dop", default=None,
+                   help="override dop_peak_theta features.parquet path")
+    p.add_argument("--out", default=None,
+                   help="override output CSV path (default: <run_dir>/predict_<ts>.csv)")
+
+
+def _predict(args: argparse.Namespace) -> int:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+
+    if args.run_dir:
+        run_dir = Path(args.run_dir)
+    else:
+        run_dir = Path(__file__).resolve().parents[2] / "results" / "run" / "latest"
+
+    from cell_lifetime.pipelines.predict import run_predict
+    summary = run_predict(
+        run_dir=run_dir,
+        out_csv=Path(args.out) if args.out else None,
+        cell_features_path=Path(args.cell_features) if args.cell_features else None,
+        dqdv_path=Path(args.dqdv) if args.dqdv else None,
+        dop_path=Path(args.dop) if args.dop else None,
+    )
+    print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="cell-lifetime")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -234,12 +276,19 @@ def main(argv: list[str] | None = None) -> int:
         help="full production fit on trainable_n{N}; predictions on all cells",
     )
     _build_production_parser(prod_p)
+    predict_p = sub.add_parser(
+        "predict",
+        help="score new cells with the persisted ensemble from a prior run",
+    )
+    _build_predict_parser(predict_p)
 
     args = ap.parse_args(argv)
     if args.cmd == "run":
         return _run(args)
     if args.cmd == "production":
         return _production(args)
+    if args.cmd == "predict":
+        return _predict(args)
     raise SystemExit(f"[error] unknown subcommand {args.cmd!r}")
 
 
